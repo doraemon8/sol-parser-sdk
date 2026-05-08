@@ -285,7 +285,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## 🏗️ Supported Protocols
 
 ### DEX Protocols
-- ✅ **PumpFun** - Meme coin trading (ultra-fast zero-copy path)
+- ✅ **PumpFun** - Meme coin trading (ultra-fast zero-copy path, incl. v2 instructions)
 - ✅ **PumpSwap** - PumpFun swap protocol
 - ✅ **Raydium AMM V4** - Automated Market Maker
 - ✅ **Raydium CLMM** - Concentrated Liquidity
@@ -401,6 +401,18 @@ if has_create {
     trade_event.is_created_buy = true;
 }
 ```
+
+### Pump.fun Bonding Curve v2 (buy_v2 / sell_v2 / buy_exact_quote_in_v2)
+
+The SDK recognizes Pump.fun's new v2 trading instructions introduced in the Bonding Curve upgrade. Event logs from `buy_v2`, `sell_v2`, and `buy_exact_quote_in_v2` are parsed with the same zero-copy path and mapped to the existing event types:
+
+| ix_name in TradeEvent | DexEvent Variant |
+|----------------------|-----------------|
+| `"buy"` / `"buy_v2"` | `DexEvent::PumpFunBuy` |
+| `"sell"` / `"sell_v2"` | `DexEvent::PumpFunSell` |
+| `"buy_exact_sol_in"` / `"buy_exact_quote_in_v2"` | `DexEvent::PumpFunBuyExactSolIn` |
+
+No changes are required in your event handling code — v2 events arrive through the same `PumpFunTradeEvent` struct with the correct `ix_name` field populated. Instruction discriminators for `buy_v2` (`[184, 23, 238, 97, 103, 197, 211, 61]`), `sell_v2` (`[93, 246, 130, 60, 231, 233, 64, 178]`), and `buy_exact_quote_in_v2` (`[194, 171, 28, 70, 104, 77, 91, 47]`) are recognized at the instruction parser level.
 
 ### Dynamic Subscription
 Update filters without reconnecting:

@@ -185,9 +185,11 @@ fn parse_trade_event_inner_borsh(
 
     // 根据 ix_name 返回不同的事件类型
     match event.ix_name.as_str() {
-        "buy" => Some(DexEvent::PumpFunBuy(event)),
-        "sell" => Some(DexEvent::PumpFunSell(event)),
-        "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(event)),
+        "buy" | "buy_v2" => Some(DexEvent::PumpFunBuy(event)),
+        "sell" | "sell_v2" => Some(DexEvent::PumpFunSell(event)),
+        "buy_exact_sol_in" | "buy_exact_quote_in_v2" => {
+            Some(DexEvent::PumpFunBuyExactSolIn(event))
+        }
         _ => Some(DexEvent::PumpFunTrade(event)),
     }
 }

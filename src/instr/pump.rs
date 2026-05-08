@@ -9,21 +9,27 @@ use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
 /// PumpFun discriminator constants
 pub mod discriminators {
-    /// Buy instruction: buy tokens with SOL
+    /// Buy instruction: buy tokens with SOL (legacy)
     pub const BUY: [u8; 8] = [102, 6, 61, 18, 1, 218, 235, 234];
-    /// Sell instruction: sell tokens for SOL
+    /// Sell instruction: sell tokens for SOL (legacy)
     pub const SELL: [u8; 8] = [51, 230, 133, 164, 1, 127, 131, 173];
     /// Create instruction: create a new bonding curve
     pub const CREATE: [u8; 8] = [24, 30, 200, 40, 5, 28, 7, 119];
     /// CreateV2 instruction: SPL-22 / Mayhem mode (idl create_v2)
     pub const CREATE_V2: [u8; 8] = [214, 144, 76, 236, 95, 139, 49, 180];
-    /// buy_exact_sol_in: Given a budget of spendable SOL, buy at least min_tokens_out
+    /// buy_exact_sol_in: Given a budget of spendable SOL, buy at least min_tokens_out (legacy)
     pub const BUY_EXACT_SOL_IN: [u8; 8] = [56, 252, 116, 8, 158, 223, 205, 95];
     /// Migrate event log discriminator (CPI)
     pub const MIGRATE_EVENT_LOG: [u8; 8] = [189, 233, 93, 185, 92, 148, 234, 148];
     /// `migrate_bonding_curve_creator` 外层 ix（`idls/pumpfun.json`）
     pub const MIGRATE_BONDING_CURVE_CREATOR: [u8; 8] =
         [87, 124, 52, 191, 52, 38, 214, 232];
+    /// buy_v2: unified buy with quote_mint support (SOL + USDC)
+    pub const BUY_V2: [u8; 8] = [184, 23, 238, 97, 103, 197, 211, 61];
+    /// sell_v2: unified sell with quote_mint support (SOL + USDC)
+    pub const SELL_V2: [u8; 8] = [93, 246, 130, 60, 231, 233, 64, 178];
+    /// buy_exact_quote_in_v2: spend exact quote amount for min tokens out (SOL + USDC)
+    pub const BUY_EXACT_QUOTE_IN_V2: [u8; 8] = [194, 171, 28, 70, 104, 77, 91, 47];
 }
 
 /// PumpFun Program ID

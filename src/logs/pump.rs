@@ -491,9 +491,11 @@ fn parse_trade_event_optimized(
 
         // 根据 ix_name 返回不同的事件类型，支持用户过滤特定交易类型
         match ix_name.as_str() {
-            "buy" => Some(DexEvent::PumpFunBuy(trade_event)),
-            "sell" => Some(DexEvent::PumpFunSell(trade_event)),
-            "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(trade_event)),
+            "buy" | "buy_v2" => Some(DexEvent::PumpFunBuy(trade_event)),
+            "sell" | "sell_v2" => Some(DexEvent::PumpFunSell(trade_event)),
+            "buy_exact_sol_in" | "buy_exact_quote_in_v2" => {
+                Some(DexEvent::PumpFunBuyExactSolIn(trade_event))
+            }
             _ => Some(DexEvent::PumpFunTrade(trade_event)), // 兼容旧版本或未知类型
         }
     }
@@ -776,9 +778,11 @@ pub fn parse_trade_from_data(
 
         // 根据 ix_name 返回不同的事件类型
         match ix_name.as_str() {
-            "buy" => Some(DexEvent::PumpFunBuy(trade_event)),
-            "sell" => Some(DexEvent::PumpFunSell(trade_event)),
-            "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(trade_event)),
+            "buy" | "buy_v2" => Some(DexEvent::PumpFunBuy(trade_event)),
+            "sell" | "sell_v2" => Some(DexEvent::PumpFunSell(trade_event)),
+            "buy_exact_sol_in" | "buy_exact_quote_in_v2" => {
+                Some(DexEvent::PumpFunBuyExactSolIn(trade_event))
+            }
             _ => Some(DexEvent::PumpFunTrade(trade_event)),
         }
     }

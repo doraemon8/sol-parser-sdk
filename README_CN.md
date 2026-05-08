@@ -286,7 +286,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## 🏗️ 支持的协议
 
 ### DEX 协议
-- ✅ **PumpFun** - Meme 币交易（超快零拷贝路径）
+- ✅ **PumpFun** - Meme 币交易（超快零拷贝路径，含 v2 指令）
 - ✅ **PumpSwap** - PumpFun 交换协议
 - ✅ **Raydium AMM V4** - 自动做市商
 - ✅ **Raydium CLMM** - 集中流动性做市
@@ -402,6 +402,18 @@ if has_create {
     trade_event.is_created_buy = true;
 }
 ```
+
+### Pump.fun Bonding Curve v2（buy_v2 / sell_v2 / buy_exact_quote_in_v2）
+
+SDK 已支持 Pump.fun Bonding Curve 升级引入的新 v2 交易指令。来自 `buy_v2`、`sell_v2` 和 `buy_exact_quote_in_v2` 的事件日志通过相同的零拷贝路径解析，并映射到已有事件类型：
+
+| ix_name in TradeEvent | DexEvent 枚举变体 |
+|----------------------|-----------------|
+| `"buy"` / `"buy_v2"` | `DexEvent::PumpFunBuy` |
+| `"sell"` / `"sell_v2"` | `DexEvent::PumpFunSell` |
+| `"buy_exact_sol_in"` / `"buy_exact_quote_in_v2"` | `DexEvent::PumpFunBuyExactSolIn` |
+
+无需修改现有事件处理代码 — v2 事件通过相同的 `PumpFunTradeEvent` 结构体投递，`ix_name` 字段会正确填充。指令层已识别 `buy_v2`（`[184, 23, 238, 97, 103, 197, 211, 61]`）、`sell_v2`（`[93, 246, 130, 60, 231, 233, 64, 178]`）和 `buy_exact_quote_in_v2`（`[194, 171, 28, 70, 104, 77, 91, 47]`）的 discriminator。
 
 ### 动态订阅
 无需重连即可更新过滤器：
