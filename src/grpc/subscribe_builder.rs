@@ -28,6 +28,7 @@ fn acc_filter_to_proto(f: &AccountFilter) -> SubscribeRequestFilterAccounts {
         owner: f.owner.clone(),
         filters: f.filters.clone(),
         nonempty_txn_signature: None,
+        cuckoo_accounts_filter: None,
     }
 }
 
