@@ -1,7 +1,8 @@
-//! ShredStream 热路径：Pump.fun **外层**指令解析（无 inner CPI）。
+//! ShredStream 热路径：DEX **外层**指令解析（无 inner CPI）。
 //!
 //! - 与 `client.rs` 解耦，便于维护与 `#[inline]` 边界优化。
 //! - 避免每笔交易克隆整张 `static_account_keys`、避免 `Vec<IxRef>` 指令副本。
+//! - Pump.fun 使用专用外层热路径；其它已支持 DEX 协议走统一指令解析入口。
 
 use std::collections::HashSet;
 
@@ -15,11 +16,17 @@ use crate::core::events::{
     DexEvent, EventMetadata, PumpFunCreateTokenEvent, PumpFunCreateV2TokenEvent,
     PumpFunMigrateBondingCurveCreatorEvent, PumpFunTradeEvent,
 };
+use crate::instr::program_ids::{
+    BONK_PROGRAM_ID, METEORA_DAMM_V2_PROGRAM_ID, METEORA_DLMM_PROGRAM_ID, METEORA_POOLS_PROGRAM_ID,
+    ORCA_WHIRLPOOL_PROGRAM_ID, PUMPSWAP_PROGRAM_ID, PUMP_FEES_PROGRAM_ID,
+    RAYDIUM_AMM_V4_PROGRAM_ID, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID,
+};
 use crate::instr::pump::discriminators;
 use crate::instr::pump::PROGRAM_ID_PUBKEY;
 use crate::instr::utils::{
     read_bool, read_option_bool_idl, read_pubkey, read_str_unchecked, read_u64_le,
 };
+use smallvec::SmallVec;
 
 #[inline(always)]
 fn token_program_or_default(token_program: Pubkey) -> Pubkey {
@@ -137,8 +144,25 @@ fn dispatch_shred_outer(
         }
         return;
     }
-    super::pfees_ix::try_push_pump_fees_outer_if_applicable(
-        program_id_index,
+    if *program_id == PUMP_FEES_PROGRAM_ID {
+        super::pfees_ix::try_push_pump_fees_outer_if_applicable(
+            program_id_index,
+            data,
+            ix_accounts,
+            static_keys,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+            events,
+        );
+        return;
+    }
+    if !is_supported_unified_outer_program(program_id) {
+        return;
+    }
+    if let Some(ev) = parse_non_pump_dex_outer(
+        *program_id,
         data,
         ix_accounts,
         static_keys,
@@ -146,11 +170,68 @@ fn dispatch_shred_outer(
         slot,
         tx_index,
         recv_us,
-        events,
-    );
+    ) {
+        events.push(ev);
+    }
 }
 
-/// 解析交易中的 Pump 外层指令并写入 `events`（调用前 `events` 应已 `clear` 或按需复用容量）。
+#[inline(always)]
+fn is_supported_unified_outer_program(program_id: &Pubkey) -> bool {
+    matches!(
+        *program_id,
+        PUMPSWAP_PROGRAM_ID
+            | BONK_PROGRAM_ID
+            | RAYDIUM_CPMM_PROGRAM_ID
+            | RAYDIUM_CLMM_PROGRAM_ID
+            | RAYDIUM_AMM_V4_PROGRAM_ID
+            | ORCA_WHIRLPOOL_PROGRAM_ID
+            | METEORA_POOLS_PROGRAM_ID
+            | METEORA_DAMM_V2_PROGRAM_ID
+            | METEORA_DLMM_PROGRAM_ID
+    )
+}
+
+#[inline]
+fn parse_non_pump_dex_outer(
+    program_id: Pubkey,
+    data: &[u8],
+    ix_accounts: &[u8],
+    static_keys: &[Pubkey],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    recv_us: i64,
+) -> Option<DexEvent> {
+    let mut accounts: SmallVec<[Pubkey; 64]> = SmallVec::new();
+    for &idx in ix_accounts {
+        accounts.push(*static_keys.get(idx as usize)?);
+    }
+    crate::instr::parse_instruction_unified(
+        data,
+        &accounts,
+        signature,
+        slot,
+        tx_index,
+        None,
+        recv_us,
+        None,
+        &program_id,
+    )
+}
+
+#[inline]
+pub(crate) fn parse_transaction_dex_events(
+    transaction: &VersionedTransaction,
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    recv_us: i64,
+    events: &mut Vec<DexEvent>,
+) {
+    parse_transaction_pump_events(transaction, signature, slot, tx_index, recv_us, events);
+}
+
+/// 解析交易中的 DEX 外层指令并写入 `events`（调用前 `events` 应已 `clear` 或按需复用容量）。
 #[inline]
 pub(crate) fn parse_transaction_pump_events(
     transaction: &VersionedTransaction,

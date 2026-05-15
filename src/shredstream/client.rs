@@ -170,7 +170,7 @@ impl ShredStreamClient {
         }
         // 热路径：`static_account_keys` 零拷贝、`pump_ix` 内不克隆 CompiledInstruction。
         let mut events = Vec::new();
-        super::pump_ix::parse_transaction_pump_events(
+        super::pump_ix::parse_transaction_dex_events(
             transaction,
             signature,
             slot,

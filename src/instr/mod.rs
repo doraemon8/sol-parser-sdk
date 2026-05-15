@@ -27,6 +27,7 @@ use crate::grpc::types::EventTypeFilter;
 pub use meteora_damm::parse_instruction as parse_meteora_damm_instruction;
 pub use pump::parse_instruction as parse_pumpfun_instruction;
 pub use pump_amm::parse_instruction as parse_pumpswap_instruction;
+pub use raydium_launchpad::parse_instruction as parse_raydium_launchpad_instruction;
 
 // 重新导出工具函数
 pub use utils::*;
@@ -34,6 +35,11 @@ pub use utils::*;
 use crate::core::events::DexEvent;
 use program_ids::*;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
+
+#[inline(always)]
+fn filter_allows_untyped_protocol(event_type_filter: Option<&EventTypeFilter>) -> bool {
+    event_type_filter.and_then(|f| f.include_only.as_ref()).is_none()
+}
 
 /// 统一的指令解析入口函数
 #[inline]
@@ -112,6 +118,104 @@ pub fn parse_instruction_unified(
             tx_index,
             block_time_us,
             grpc_recv_us,
+        );
+    }
+    // Bonk / Raydium Launchpad
+    else if *program_id == BONK_PROGRAM_ID {
+        if event_type_filter.is_some() && !event_type_filter.unwrap().includes_raydium_launchpad() {
+            return None;
+        }
+        return parse_raydium_launchpad_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+        );
+    }
+    // Raydium CPMM
+    else if *program_id == RAYDIUM_CPMM_PROGRAM_ID {
+        if !filter_allows_untyped_protocol(event_type_filter) {
+            return None;
+        }
+        return crate::instr::raydium_cpmm::parse_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+        );
+    }
+    // Raydium CLMM
+    else if *program_id == RAYDIUM_CLMM_PROGRAM_ID {
+        if !filter_allows_untyped_protocol(event_type_filter) {
+            return None;
+        }
+        return crate::instr::raydium_clmm::parse_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+        );
+    }
+    // Raydium AMM V4
+    else if *program_id == RAYDIUM_AMM_V4_PROGRAM_ID {
+        if !filter_allows_untyped_protocol(event_type_filter) {
+            return None;
+        }
+        return crate::instr::raydium_amm::parse_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+        );
+    }
+    // Orca Whirlpool
+    else if *program_id == ORCA_WHIRLPOOL_PROGRAM_ID {
+        if !filter_allows_untyped_protocol(event_type_filter) {
+            return None;
+        }
+        return crate::instr::orca_whirlpool::parse_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+        );
+    }
+    // Meteora Pools / AMM
+    else if *program_id == METEORA_POOLS_PROGRAM_ID {
+        if !filter_allows_untyped_protocol(event_type_filter) {
+            return None;
+        }
+        return crate::instr::meteora_amm::parse_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+        );
+    }
+    // Meteora DLMM
+    else if *program_id == METEORA_DLMM_PROGRAM_ID {
+        if !filter_allows_untyped_protocol(event_type_filter) {
+            return None;
+        }
+        return crate::instr::meteora_dlmm::parse_instruction(
+            instruction_data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
         );
     }
 
