@@ -29,11 +29,16 @@ pub enum DexEvent {
     /// Pump.fun：曲线 creator 迁移（`migrateBondingCurveCreatorEvent`）
     PumpFunMigrateBondingCurveCreator(PumpFunMigrateBondingCurveCreatorEvent),
     PumpFunGlobalAccount(PumpFunGlobalAccountEvent), // - 已对接
-    PumpSwapTrade(PumpSwapTradeEvent),               // - 已对接 (buy/sell/buy_exact_sol_in)
-    PumpSwapBuy(PumpSwapBuyEvent),                   // - 已对接 (legacy)
-    PumpSwapSell(PumpSwapSellEvent),                 // - 已对接 (legacy)
-    PumpSwapCreatePool(PumpSwapCreatePoolEvent),     // - 已对接
-    PumpSwapLiquidityAdded(PumpSwapLiquidityAdded),  // - 已对接
+    PumpFunBondingCurveAccount(PumpFunBondingCurveAccountEvent),
+    PumpFunFeeConfigAccount(PumpFunFeeConfigAccountEvent),
+    PumpFunSharingConfigAccount(PumpFunSharingConfigAccountEvent),
+    PumpFunGlobalVolumeAccumulatorAccount(PumpFunGlobalVolumeAccumulatorAccountEvent),
+    PumpFunUserVolumeAccumulatorAccount(PumpFunUserVolumeAccumulatorAccountEvent),
+    PumpSwapTrade(PumpSwapTradeEvent), // - 已对接 (buy/sell/buy_exact_sol_in)
+    PumpSwapBuy(PumpSwapBuyEvent),     // - 已对接 (legacy)
+    PumpSwapSell(PumpSwapSellEvent),   // - 已对接 (legacy)
+    PumpSwapCreatePool(PumpSwapCreatePoolEvent), // - 已对接
+    PumpSwapLiquidityAdded(PumpSwapLiquidityAdded), // - 已对接
     PumpSwapLiquidityRemoved(PumpSwapLiquidityRemoved), // - 已对接
 
     // Meteora DAMM V2 事件
@@ -142,6 +147,11 @@ impl DexEvent {
             DexEvent::PumpFeesUpsertFeeTiers(e) => &e.metadata,
             DexEvent::PumpFunMigrateBondingCurveCreator(e) => &e.metadata,
             DexEvent::PumpFunGlobalAccount(e) => &e.metadata,
+            DexEvent::PumpFunBondingCurveAccount(e) => &e.metadata,
+            DexEvent::PumpFunFeeConfigAccount(e) => &e.metadata,
+            DexEvent::PumpFunSharingConfigAccount(e) => &e.metadata,
+            DexEvent::PumpFunGlobalVolumeAccumulatorAccount(e) => &e.metadata,
+            DexEvent::PumpFunUserVolumeAccumulatorAccount(e) => &e.metadata,
 
             // PumpSwap 事件
             DexEvent::PumpSwapTrade(e) => &e.metadata,
@@ -246,6 +256,11 @@ impl DexEvent {
             DexEvent::PumpFeesUpsertFeeTiers(e) => Some(&mut e.metadata),
             DexEvent::PumpFunMigrateBondingCurveCreator(e) => Some(&mut e.metadata),
             DexEvent::PumpFunGlobalAccount(e) => Some(&mut e.metadata),
+            DexEvent::PumpFunBondingCurveAccount(e) => Some(&mut e.metadata),
+            DexEvent::PumpFunFeeConfigAccount(e) => Some(&mut e.metadata),
+            DexEvent::PumpFunSharingConfigAccount(e) => Some(&mut e.metadata),
+            DexEvent::PumpFunGlobalVolumeAccumulatorAccount(e) => Some(&mut e.metadata),
+            DexEvent::PumpFunUserVolumeAccumulatorAccount(e) => Some(&mut e.metadata),
             DexEvent::PumpSwapTrade(e) => Some(&mut e.metadata),
             DexEvent::PumpSwapBuy(e) => Some(&mut e.metadata),
             DexEvent::PumpSwapSell(e) => Some(&mut e.metadata),

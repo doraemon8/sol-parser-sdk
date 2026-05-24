@@ -460,12 +460,19 @@ fn parse_buy_v2_instruction(
     } else {
         (0, 0)
     };
-    let (token_amount, sol_amount, amount, max_sol_cost, spendable_quote_in, min_tokens_out) =
-        if exact_quote_in {
-            (second_arg, first_arg, second_arg, first_arg, first_arg, second_arg)
-        } else {
-            (first_arg, second_arg, first_arg, second_arg, 0, 0)
-        };
+    let (
+        token_amount,
+        sol_amount,
+        amount,
+        max_sol_cost,
+        quote_amount,
+        spendable_quote_in,
+        min_tokens_out,
+    ) = if exact_quote_in {
+        (second_arg, first_arg, second_arg, 0, first_arg, first_arg, second_arg)
+    } else {
+        (first_arg, second_arg, first_arg, second_arg, 0, 0, 0)
+    };
 
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
@@ -486,6 +493,7 @@ fn parse_buy_v2_instruction(
         token_amount,
         amount,
         max_sol_cost,
+        quote_amount,
         spendable_sol_in: 0,
         spendable_quote_in,
         min_tokens_out,
@@ -906,10 +914,32 @@ mod tests {
                 assert_eq!(t.associated_quote_buyback_fee_recipient, acc[9]);
                 assert_eq!(t.associated_creator_vault, acc[17]);
                 assert_eq!(t.sharing_config, acc[18]);
+                assert_eq!(t.global_volume_accumulator, acc[19]);
                 assert_eq!(t.associated_user_volume_accumulator, acc[21]);
                 assert_eq!(t.ix_name, "buy_v2");
             }
             other => panic!("expected PumpFunBuy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_buy_exact_quote_in_v2_uses_quote_amount_fields() {
+        let data = instruction_data(discriminators::BUY_EXACT_QUOTE_IN_V2, 777, 888);
+        let acc = accounts(27);
+        let event =
+            parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
+
+        match event {
+            DexEvent::PumpFunBuyExactSolIn(t) => {
+                assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
+                assert_eq!(t.amount, 888);
+                assert_eq!(t.max_sol_cost, 0);
+                assert_eq!(t.quote_amount, 777);
+                assert_eq!(t.spendable_quote_in, 777);
+                assert_eq!(t.min_tokens_out, 888);
+                assert_eq!(t.quote_mint, acc[2]);
+            }
+            other => panic!("expected PumpFunBuyExactSolIn, got {other:?}"),
         }
     }
 }

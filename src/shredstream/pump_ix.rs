@@ -1141,7 +1141,8 @@ fn parse_buy_exact_quote_in_v2_instruction(
         sol_amount,
         token_amount,
         amount: token_amount,
-        max_sol_cost: sol_amount,
+        max_sol_cost: 0,
+        quote_amount: sol_amount,
         min_sol_output: 0,
         spendable_sol_in: 0,
         spendable_quote_in: sol_amount,
@@ -1410,8 +1411,13 @@ mod tests {
                 assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
                 assert_eq!(t.spendable_quote_in, 500);
                 assert_eq!(t.min_tokens_out, 600);
+                assert_eq!(t.max_sol_cost, 0);
+                assert_eq!(t.quote_amount, 500);
                 assert_eq!(t.quote_mint, accounts[2]);
                 assert_eq!(t.associated_quote_user, accounts[15]);
+                assert_eq!(t.associated_creator_vault, accounts[17]);
+                assert_eq!(t.sharing_config, accounts[18]);
+                assert_eq!(t.global_volume_accumulator, accounts[19]);
                 assert_eq!(t.fee_program, accounts[23]);
             }
             other => panic!("expected exact buy variant, got {other:?}"),

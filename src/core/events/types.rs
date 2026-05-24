@@ -1443,14 +1443,88 @@ pub struct PumpFunBondingCurveAccountEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PumpFunBondingCurve {
     pub virtual_token_reserves: u64,
-    pub virtual_sol_reserves: u64,
+    pub virtual_quote_reserves: u64,
     pub real_token_reserves: u64,
-    pub real_sol_reserves: u64,
+    pub real_quote_reserves: u64,
     pub token_total_supply: u64,
     pub complete: bool,
-    /// Cashback 币种标记 (PUMP_CASHBACK_README)
-    #[serde(default)]
+    pub creator: Pubkey,
+    pub is_mayhem_mode: bool,
     pub is_cashback_coin: bool,
+    pub quote_mint: Pubkey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunFeeConfigAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub fee_config: PumpFunFeeConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunFeeConfig {
+    pub bump: u8,
+    pub admin: Pubkey,
+    pub flat_fees: PumpFeesFees,
+    pub fee_tiers: Vec<PumpFeesFeeTier>,
+    pub stable_fee_tiers: Vec<PumpFeesFeeTier>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunSharingConfigAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub sharing_config: PumpFunSharingConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunSharingConfig {
+    pub bump: u8,
+    pub version: u8,
+    pub status: PumpFeesConfigStatus,
+    pub mint: Pubkey,
+    pub admin: Pubkey,
+    pub admin_revoked: bool,
+    pub shareholders: Vec<PumpFeesShareholder>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunGlobalVolumeAccumulatorAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub global_volume_accumulator: PumpFunGlobalVolumeAccumulator,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunGlobalVolumeAccumulator {
+    pub start_time: i64,
+    pub end_time: i64,
+    pub seconds_in_a_day: i64,
+    pub mint: Pubkey,
+    pub total_token_supply: [u64; 30],
+    pub sol_volumes: [u64; 30],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunUserVolumeAccumulatorAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub user_volume_accumulator: PumpFunUserVolumeAccumulator,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PumpFunUserVolumeAccumulator {
+    pub user: Pubkey,
+    pub needs_claim: bool,
+    pub total_unclaimed_tokens: u64,
+    pub total_claimed_tokens: u64,
+    pub current_sol_volume: u64,
+    pub last_update_timestamp: i64,
+    pub has_total_claimed_tokens: bool,
+    pub cashback_earned: u64,
+    pub total_cashback_claimed: u64,
+    pub stable_cashback_earned: u64,
+    pub total_stable_cashback_claimed: u64,
 }
 
 /// PumpFun Global Account Event
@@ -1475,7 +1549,7 @@ pub struct PumpFunGlobal {
     pub enable_migrate: bool,
     pub pool_migration_fee: u64,
     pub creator_fee_basis_points: u64,
-    pub fee_recipients: [Pubkey; 8],
+    pub fee_recipients: [Pubkey; 7],
     pub set_creator_authority: Pubkey,
     pub admin_set_creator_authority: Pubkey,
     pub create_v2_enabled: bool,
@@ -1483,6 +1557,11 @@ pub struct PumpFunGlobal {
     pub reserved_fee_recipient: Pubkey,
     pub mayhem_mode_enabled: bool,
     pub reserved_fee_recipients: [Pubkey; 7],
+    pub is_cashback_enabled: bool,
+    pub buyback_fee_recipients: [Pubkey; 8],
+    pub buyback_basis_points: u64,
+    pub initial_virtual_quote_reserves: u64,
+    pub whitelisted_quote_mints: [Pubkey; 1],
 }
 
 /// Raydium AMM V4 Info Account Event

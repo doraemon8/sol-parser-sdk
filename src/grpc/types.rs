@@ -341,6 +341,11 @@ pub enum EventType {
     TokenAccount,
     NonceAccount,
     AccountPumpFunGlobal,
+    AccountPumpFunBondingCurve,
+    AccountPumpFunFeeConfig,
+    AccountPumpFunSharingConfig,
+    AccountPumpFunGlobalVolumeAccumulator,
+    AccountPumpFunUserVolumeAccumulator,
 
     AccountPumpSwapGlobalConfig,
     AccountPumpSwapPool,
@@ -448,6 +453,11 @@ impl EventTypeFilter {
                     | EventType::PumpFunMigrate
                     | EventType::PumpFunMigrateBondingCurveCreator
                     | EventType::AccountPumpFunGlobal
+                    | EventType::AccountPumpFunBondingCurve
+                    | EventType::AccountPumpFunFeeConfig
+                    | EventType::AccountPumpFunSharingConfig
+                    | EventType::AccountPumpFunGlobalVolumeAccumulator
+                    | EventType::AccountPumpFunUserVolumeAccumulator
             )
         })
     }
@@ -633,6 +643,15 @@ pub fn event_type_from_dex_event(event: &crate::core::events::DexEvent) -> Optio
             Some(EventType::PumpFunMigrateBondingCurveCreator)
         }
         DexEvent::PumpFunGlobalAccount(_) => Some(EventType::AccountPumpFunGlobal),
+        DexEvent::PumpFunBondingCurveAccount(_) => Some(EventType::AccountPumpFunBondingCurve),
+        DexEvent::PumpFunFeeConfigAccount(_) => Some(EventType::AccountPumpFunFeeConfig),
+        DexEvent::PumpFunSharingConfigAccount(_) => Some(EventType::AccountPumpFunSharingConfig),
+        DexEvent::PumpFunGlobalVolumeAccumulatorAccount(_) => {
+            Some(EventType::AccountPumpFunGlobalVolumeAccumulator)
+        }
+        DexEvent::PumpFunUserVolumeAccumulatorAccount(_) => {
+            Some(EventType::AccountPumpFunUserVolumeAccumulator)
+        }
         DexEvent::PumpSwapTrade(_) => Some(EventType::PumpSwapTrade),
         DexEvent::PumpSwapBuy(_) => Some(EventType::PumpSwapBuy),
         DexEvent::PumpSwapSell(_) => Some(EventType::PumpSwapSell),
