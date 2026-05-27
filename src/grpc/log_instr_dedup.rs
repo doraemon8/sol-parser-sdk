@@ -33,9 +33,6 @@ enum LogInstrDedupKey {
     PumpFunCreate {
         mint: Pubkey,
     },
-    PumpFunCreateV2 {
-        mint: Pubkey,
-    },
     PumpFunMigrate {
         mint: Pubkey,
         pool: Pubkey,
@@ -133,7 +130,7 @@ fn log_instr_dedup_key(ev: &DexEvent) -> Option<LogInstrDedupKey> {
     use DexEvent::*;
     match ev {
         PumpFunCreate(c) => Some(LogInstrDedupKey::PumpFunCreate { mint: c.mint }),
-        PumpFunCreateV2(c) => Some(LogInstrDedupKey::PumpFunCreateV2 { mint: c.mint }),
+        PumpFunCreateV2(c) => Some(LogInstrDedupKey::PumpFunCreate { mint: c.mint }),
         PumpFunMigrate(m) => {
             Some(LogInstrDedupKey::PumpFunMigrate { mint: m.mint, pool: m.pool, user: m.user })
         }
@@ -243,7 +240,9 @@ pub(crate) fn dedupe_log_instruction_events(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::events::{EventMetadata, PumpFunTradeEvent};
+    use crate::core::events::{
+        EventMetadata, PumpFunCreateTokenEvent, PumpFunCreateV2TokenEvent, PumpFunTradeEvent,
+    };
     use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
     fn dummy_meta() -> EventMetadata {
@@ -299,6 +298,61 @@ mod tests {
                 assert_eq!(t.max_sol_cost, 9_999_999, "应补齐 ix 侧 max_sol_cost");
             }
             e => panic!("expected PumpFunTrade (保留 log 变体), got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn pumpfun_create_and_create_v2_same_mint_collapse() {
+        let mint = Pubkey::new_unique();
+        let bonding_curve = Pubkey::new_unique();
+        let user = Pubkey::new_unique();
+        let creator = Pubkey::new_unique();
+        let token_program = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        let log_create = PumpFunCreateTokenEvent {
+            metadata: dummy_meta(),
+            name: "Token".to_string(),
+            symbol: "TOK".to_string(),
+            uri: "https://example.invalid/token.json".to_string(),
+            mint,
+            virtual_token_reserves: 1,
+            ..Default::default()
+        };
+        let ix_create_v2 = PumpFunCreateV2TokenEvent {
+            metadata: dummy_meta(),
+            mint,
+            bonding_curve,
+            user,
+            creator,
+            token_program,
+            quote_mint,
+            virtual_quote_reserves: 2,
+            is_mayhem_mode: true,
+            is_cashback_enabled: true,
+            ..Default::default()
+        };
+
+        let merged = dedupe_log_instruction_events(
+            vec![DexEvent::PumpFunCreate(log_create)],
+            vec![DexEvent::PumpFunCreateV2(ix_create_v2)],
+        );
+
+        assert_eq!(merged.len(), 1, "Create log + create_v2 ix for the same mint must emit once");
+        match &merged[0] {
+            DexEvent::PumpFunCreate(e) => {
+                assert_eq!(e.mint, mint);
+                assert_eq!(e.bonding_curve, bonding_curve);
+                assert_eq!(e.user, user);
+                assert_eq!(e.creator, creator);
+                assert_eq!(e.token_program, token_program);
+                assert_eq!(e.quote_mint, quote_mint);
+                assert_eq!(e.virtual_token_reserves, 1);
+                assert_eq!(e.virtual_quote_reserves, 2);
+                assert!(e.is_mayhem_mode);
+                assert!(e.is_cashback_enabled);
+            }
+            other => panic!("expected PumpFunCreate canonical event, got {other:?}"),
         }
     }
 

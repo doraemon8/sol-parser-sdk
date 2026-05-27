@@ -450,6 +450,33 @@ pub struct PumpFunCreateTokenEvent {
     /// Initial virtual quote reserves. For SOL pools this is the SOL-side reserve;
     /// for USDC pools this is the USDC-side reserve.
     pub virtual_quote_reserves: u64,
+    #[borsh(skip)]
+    pub mint_authority: Pubkey,
+    #[borsh(skip)]
+    pub associated_bonding_curve: Pubkey,
+    #[borsh(skip)]
+    pub global: Pubkey,
+    #[borsh(skip)]
+    pub system_program: Pubkey,
+    #[borsh(skip)]
+    pub associated_token_program: Pubkey,
+    #[borsh(skip)]
+    pub mayhem_program_id: Pubkey,
+    #[borsh(skip)]
+    pub global_params: Pubkey,
+    #[borsh(skip)]
+    pub sol_vault: Pubkey,
+    #[borsh(skip)]
+    pub mayhem_state: Pubkey,
+    #[borsh(skip)]
+    pub mayhem_token_vault: Pubkey,
+    #[borsh(skip)]
+    pub event_authority: Pubkey,
+    #[borsh(skip)]
+    pub program: Pubkey,
+    /// Same-tx later Pump Buy fee recipient, filled by `pumpfun_fee_enrich`.
+    #[borsh(skip)]
+    pub observed_fee_recipient: Pubkey,
 }
 
 /// PumpFun Create V2 Token Event (SPL-22 / Mayhem Mode)

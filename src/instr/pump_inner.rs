@@ -472,6 +472,7 @@ fn parse_create_event_fields(data: &[u8], metadata: EventMetadata) -> Option<Dex
         is_cashback_enabled,
         quote_mint,
         virtual_quote_reserves,
+        ..Default::default()
     }))
 }
 

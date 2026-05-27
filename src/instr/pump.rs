@@ -679,7 +679,7 @@ fn parse_create_v2_instruction(
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
-    Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
+    Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
         metadata,
         name,
         symbol,
@@ -781,6 +781,49 @@ mod tests {
 
     fn accounts(n: usize) -> Vec<Pubkey> {
         (0..n).map(|_| Pubkey::new_unique()).collect()
+    }
+
+    fn str_arg(s: &str, out: &mut Vec<u8>) {
+        out.extend_from_slice(&(s.len() as u32).to_le_bytes());
+        out.extend_from_slice(s.as_bytes());
+    }
+
+    fn create_v2_data() -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&discriminators::CREATE_V2);
+        str_arg("Token", &mut data);
+        str_arg("TOK", &mut data);
+        str_arg("https://example.invalid/token.json", &mut data);
+        data.extend_from_slice(Pubkey::new_unique().as_ref());
+        data.push(1);
+        data.push(1);
+        data
+    }
+
+    #[test]
+    fn pumpfun_create_v2_instruction_emits_canonical_create() {
+        let acc = accounts(16);
+        let event =
+            parse_instruction(&create_v2_data(), &acc, Signature::default(), 1, 0, None, 99)
+                .expect("event");
+
+        match event {
+            DexEvent::PumpFunCreate(c) => {
+                assert_eq!(c.name, "Token");
+                assert_eq!(c.symbol, "TOK");
+                assert_eq!(c.mint, acc[0]);
+                assert_eq!(c.mint_authority, acc[1]);
+                assert_eq!(c.bonding_curve, acc[2]);
+                assert_eq!(c.associated_bonding_curve, acc[3]);
+                assert_eq!(c.user, acc[5]);
+                assert_eq!(c.token_program, acc[7]);
+                assert_eq!(c.mayhem_program_id, acc[9]);
+                assert_eq!(c.program, acc[15]);
+                assert!(c.is_mayhem_mode);
+                assert!(c.is_cashback_enabled);
+            }
+            other => panic!("expected canonical PumpFunCreate, got {other:?}"),
+        }
     }
 
     #[test]

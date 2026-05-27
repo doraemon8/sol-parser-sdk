@@ -1404,9 +1404,10 @@ fn filter_pumpfun_trade_variant(
                         matches!(t, EventType::PumpFunBuy | EventType::PumpFunBuyExactSolIn)
                     }),
                     DexEvent::PumpFunTrade(_) => include_only.contains(&EventType::PumpFunTrade),
-                    DexEvent::PumpFunCreate(_) => include_only.contains(&EventType::PumpFunCreate),
-                    DexEvent::PumpFunCreateV2(_) => {
-                        include_only.contains(&EventType::PumpFunCreateV2)
+                    DexEvent::PumpFunCreate(_) | DexEvent::PumpFunCreateV2(_) => {
+                        include_only.iter().any(|t| {
+                            matches!(t, EventType::PumpFunCreate | EventType::PumpFunCreateV2)
+                        })
                     }
                     _ => false,
                 };

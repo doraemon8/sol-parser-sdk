@@ -1,5 +1,5 @@
 //! 同笔交易内 Pump 事件后处理（**零 RPC**，供 gRPC/Shred 热路径）：
-//! - CreateV2 + 后续 Buy 分离时，将 Buy 的 fee recipient 回填到 `observed_fee_recipient`
+//! - Create/CreateV2 + 后续 Buy 分离时，将 Buy 的 fee recipient 回填到 `observed_fee_recipient`
 //! - 将 **Create / CreateV2 指令**里的 `is_cashback_enabled`、`is_mayhem_mode` 合并进同一 mint 的 Trade 事件，
 //!   避免仅有外层指令、TradeEvent 日志缺字段时 `sol-trade-sdk` 误判返现与 Mayhem fee 池
 
@@ -26,7 +26,7 @@ fn pumpfun_buy_like_mint_fee(e: &DexEvent) -> Option<(Pubkey, Pubkey)> {
 }
 
 /// 扫描同签名下的买入类事件，按 mint 记录 `fee_recipient`（ShredStream 外层的 buy 已从 accounts[1] 解析）。
-pub fn enrich_create_v2_observed_fee_recipient(events: &mut [DexEvent]) {
+pub fn enrich_create_observed_fee_recipient(events: &mut [DexEvent]) {
     let mut mint_to_fee: HashMap<Pubkey, Pubkey> = HashMap::new();
     for e in events.iter() {
         if let Some((mint, fee)) = pumpfun_buy_like_mint_fee(e) {
@@ -39,12 +39,22 @@ pub fn enrich_create_v2_observed_fee_recipient(events: &mut [DexEvent]) {
         return;
     }
     for e in events.iter_mut() {
-        if let DexEvent::PumpFunCreateV2(c) = e {
-            if c.observed_fee_recipient == Pubkey::default() {
-                if let Some(&f) = mint_to_fee.get(&c.mint) {
-                    c.observed_fee_recipient = f;
+        match e {
+            DexEvent::PumpFunCreate(c) => {
+                if c.observed_fee_recipient == Pubkey::default() {
+                    if let Some(&f) = mint_to_fee.get(&c.mint) {
+                        c.observed_fee_recipient = f;
+                    }
                 }
             }
+            DexEvent::PumpFunCreateV2(c) => {
+                if c.observed_fee_recipient == Pubkey::default() {
+                    if let Some(&f) = mint_to_fee.get(&c.mint) {
+                        c.observed_fee_recipient = f;
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -198,7 +208,7 @@ pub fn enrich_pumpfun_trades_from_create_instructions(events: &mut [DexEvent]) {
 /// 合并调用：fee 回填 + Create→Trade 标志（gRPC / Shred 在 `merge` 之后调用一次即可）。
 pub fn enrich_pumpfun_same_tx_post_merge(events: &mut [DexEvent]) {
     enrich_create_v2_from_create_events(events);
-    enrich_create_v2_observed_fee_recipient(events);
+    enrich_create_observed_fee_recipient(events);
     enrich_pumpfun_trades_from_create_instructions(events);
 }
 
@@ -209,7 +219,7 @@ mod tests {
     use solana_sdk::signature::Signature;
 
     #[test]
-    fn enrich_fills_create_v2_from_same_tx_buy() {
+    fn enrich_fills_create_from_same_tx_buy() {
         let sig = Signature::default();
         let mint = Pubkey::new_unique();
         let fee = Pubkey::new_unique();
@@ -222,7 +232,7 @@ mod tests {
             recent_blockhash: None,
         };
         let mut events: Vec<DexEvent> = vec![
-            DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
+            DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
                 metadata: meta.clone(),
                 mint,
                 ..Default::default()
@@ -235,11 +245,11 @@ mod tests {
                 ..Default::default()
             }),
         ];
-        enrich_create_v2_observed_fee_recipient(&mut events);
-        if let DexEvent::PumpFunCreateV2(c) = &events[0] {
+        enrich_create_observed_fee_recipient(&mut events);
+        if let DexEvent::PumpFunCreate(c) = &events[0] {
             assert_eq!(c.observed_fee_recipient, fee);
         } else {
-            panic!("expected CreateV2");
+            panic!("expected Create");
         }
     }
 

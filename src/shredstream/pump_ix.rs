@@ -13,8 +13,7 @@ use solana_sdk::transaction::VersionedTransaction;
 use crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
 use crate::core::events::{
     normalize_pumpfun_quote_mint, DexEvent, EventMetadata, PumpFunCreateTokenEvent,
-    PumpFunCreateV2TokenEvent, PumpFunMigrateBondingCurveCreatorEvent, PumpFunTradeEvent,
-    PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+    PumpFunMigrateBondingCurveCreatorEvent, PumpFunTradeEvent, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
 };
 use crate::grpc::types::EventTypeFilter;
 use crate::instr::program_ids::{
@@ -912,7 +911,7 @@ fn parse_create_v2_instruction(
 
     let mayhem_program_id = get_account(9).unwrap_or_default();
 
-    Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
+    Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
         metadata,
         name,
         symbol,

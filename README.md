@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.3"
+sol-parser-sdk = "0.5.4"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.3", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.4", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.4
+
+- Emits Pump.fun `create` and `create_v2` as one canonical `PumpFunCreate` event.
+- Treats `PumpFunCreate` and `PumpFunCreateV2` filters as the same create-family subscription.
+- Keeps create_v2 account fields on the canonical create event so bots do not need to handle two event variants.
+- Prevents duplicate new-mint callbacks from gRPC log + instruction parsing.
 
 #### v0.5.3
 

@@ -424,6 +424,9 @@ impl EventTypeFilter {
                 }
                 return false;
             }
+            if is_pumpfun_create_family(event_type) {
+                return include_only.iter().any(|t| is_pumpfun_create_family(*t));
+            }
             if matches!(event_type, EventType::PumpSwapBuy | EventType::PumpSwapSell) {
                 return include_only.contains(&EventType::PumpSwapTrade);
             }
@@ -443,6 +446,11 @@ impl EventTypeFilter {
             }
             if is_pumpfun_buy_family(event_type)
                 && exclude_types.iter().any(|t| is_pumpfun_buy_family(*t))
+            {
+                return false;
+            }
+            if is_pumpfun_create_family(event_type)
+                && exclude_types.iter().any(|t| is_pumpfun_create_family(*t))
             {
                 return false;
             }
@@ -650,6 +658,11 @@ impl EventTypeFilter {
 #[inline]
 fn is_pumpfun_buy_family(event_type: EventType) -> bool {
     matches!(event_type, EventType::PumpFunBuy | EventType::PumpFunBuyExactSolIn)
+}
+
+#[inline]
+fn is_pumpfun_create_family(event_type: EventType) -> bool {
+    matches!(event_type, EventType::PumpFunCreate | EventType::PumpFunCreateV2)
 }
 
 #[inline]

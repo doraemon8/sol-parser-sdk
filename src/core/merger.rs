@@ -562,6 +562,58 @@ fn merge_pumpfun_create_log_preferred(
 }
 
 #[inline]
+fn merge_pumpfun_create_v2_into_create_log_preferred(
+    log: &mut PumpFunCreateTokenEvent,
+    ix: PumpFunCreateV2TokenEvent,
+) {
+    fill_str_if_empty(&mut log.name, &ix.name);
+    fill_str_if_empty(&mut log.symbol, &ix.symbol);
+    fill_str_if_empty(&mut log.uri, &ix.uri);
+    fill_pk(&mut log.mint, ix.mint);
+    fill_pk(&mut log.bonding_curve, ix.bonding_curve);
+    fill_pk(&mut log.user, ix.user);
+    fill_pk(&mut log.creator, ix.creator);
+    if log.timestamp == 0 && ix.timestamp != 0 {
+        log.timestamp = ix.timestamp;
+    }
+    put_u64_if_nonzero(&mut log.virtual_token_reserves, ix.virtual_token_reserves);
+    put_u64_if_nonzero(&mut log.virtual_sol_reserves, ix.virtual_sol_reserves);
+    put_u64_if_nonzero(&mut log.real_token_reserves, ix.real_token_reserves);
+    put_u64_if_nonzero(&mut log.token_total_supply, ix.token_total_supply);
+    fill_pk(&mut log.token_program, ix.token_program);
+    fill_pumpfun_quote_mint(&mut log.quote_mint, ix.quote_mint);
+    put_u64_if_nonzero(&mut log.virtual_quote_reserves, ix.virtual_quote_reserves);
+    log.is_mayhem_mode |= ix.is_mayhem_mode;
+    log.is_cashback_enabled |= ix.is_cashback_enabled;
+}
+
+#[inline]
+fn merge_pumpfun_create_into_create_v2_log_preferred(
+    log: &mut PumpFunCreateV2TokenEvent,
+    ix: PumpFunCreateTokenEvent,
+) {
+    fill_str_if_empty(&mut log.name, &ix.name);
+    fill_str_if_empty(&mut log.symbol, &ix.symbol);
+    fill_str_if_empty(&mut log.uri, &ix.uri);
+    fill_pk(&mut log.mint, ix.mint);
+    fill_pk(&mut log.bonding_curve, ix.bonding_curve);
+    fill_pk(&mut log.user, ix.user);
+    fill_pk(&mut log.creator, ix.creator);
+    if log.timestamp == 0 && ix.timestamp != 0 {
+        log.timestamp = ix.timestamp;
+    }
+    put_u64_if_nonzero(&mut log.virtual_token_reserves, ix.virtual_token_reserves);
+    put_u64_if_nonzero(&mut log.virtual_sol_reserves, ix.virtual_sol_reserves);
+    put_u64_if_nonzero(&mut log.real_token_reserves, ix.real_token_reserves);
+    put_u64_if_nonzero(&mut log.token_total_supply, ix.token_total_supply);
+    fill_pk(&mut log.token_program, ix.token_program);
+    fill_pumpfun_quote_mint(&mut log.quote_mint, ix.quote_mint);
+    put_u64_if_nonzero(&mut log.virtual_quote_reserves, ix.virtual_quote_reserves);
+    log.is_mayhem_mode |= ix.is_mayhem_mode;
+    log.is_cashback_enabled |= ix.is_cashback_enabled;
+}
+
+#[inline]
 fn merge_pumpfun_create_v2_log_preferred(
     log: &mut PumpFunCreateV2TokenEvent,
     ix: PumpFunCreateV2TokenEvent,
@@ -768,16 +820,16 @@ pub fn merge_grpc_instruction_into_log(log: &mut DexEvent, ix: DexEvent) {
                 merge_pumpfun_trade_log_preferred(l, i);
             }
         }
-        PumpFunCreate(l) => {
-            if let DexEvent::PumpFunCreate(i) = ix {
-                merge_pumpfun_create_log_preferred(l, i);
-            }
-        }
-        PumpFunCreateV2(l) => {
-            if let DexEvent::PumpFunCreateV2(i) = ix {
-                merge_pumpfun_create_v2_log_preferred(l, i);
-            }
-        }
+        PumpFunCreate(l) => match ix {
+            DexEvent::PumpFunCreate(i) => merge_pumpfun_create_log_preferred(l, i),
+            DexEvent::PumpFunCreateV2(i) => merge_pumpfun_create_v2_into_create_log_preferred(l, i),
+            _ => {}
+        },
+        PumpFunCreateV2(l) => match ix {
+            DexEvent::PumpFunCreate(i) => merge_pumpfun_create_into_create_v2_log_preferred(l, i),
+            DexEvent::PumpFunCreateV2(i) => merge_pumpfun_create_v2_log_preferred(l, i),
+            _ => {}
+        },
         PumpFunMigrate(l) => {
             if let DexEvent::PumpFunMigrate(i) = ix {
                 merge_pumpfun_migrate_log_preferred(l, i);

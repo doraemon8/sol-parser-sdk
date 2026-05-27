@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.3"
+sol-parser-sdk = "0.5.4"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.3", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.4", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
+
+#### v0.5.4
+
+- Pump.fun `create` 和 `create_v2` 统一投递为 canonical `PumpFunCreate` 事件。
+- `PumpFunCreate` 和 `PumpFunCreateV2` 过滤器按同一个 create-family 订阅处理。
+- canonical create 事件保留 create_v2 账户字段，Bot 不需要同时处理两个事件变体。
+- 修复 gRPC log + instruction 双路径解析导致新 mint 回调重复的问题。
 
 #### v0.5.3
 
