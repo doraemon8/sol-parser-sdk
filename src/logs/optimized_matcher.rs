@@ -1396,11 +1396,13 @@ fn filter_pumpfun_trade_variant(
                 });
             if has_specific_filter {
                 let event_type_matches = match &event {
-                    DexEvent::PumpFunBuy(_) => include_only.contains(&EventType::PumpFunBuy),
+                    DexEvent::PumpFunBuy(_) => include_only.iter().any(|t| {
+                        matches!(t, EventType::PumpFunBuy | EventType::PumpFunBuyExactSolIn)
+                    }),
                     DexEvent::PumpFunSell(_) => include_only.contains(&EventType::PumpFunSell),
-                    DexEvent::PumpFunBuyExactSolIn(_) => {
-                        include_only.contains(&EventType::PumpFunBuyExactSolIn)
-                    }
+                    DexEvent::PumpFunBuyExactSolIn(_) => include_only.iter().any(|t| {
+                        matches!(t, EventType::PumpFunBuy | EventType::PumpFunBuyExactSolIn)
+                    }),
                     DexEvent::PumpFunTrade(_) => include_only.contains(&EventType::PumpFunTrade),
                     DexEvent::PumpFunCreate(_) => include_only.contains(&EventType::PumpFunCreate),
                     DexEvent::PumpFunCreateV2(_) => {
@@ -1715,6 +1717,30 @@ mod tests {
         });
 
         assert!(filter_pumpfun_trade_variant(event, Some(&filter)).is_some());
+    }
+
+    #[test]
+    fn pumpfun_buy_family_filter_matches_both_buy_variants() {
+        let buy = DexEvent::PumpFunBuy(PumpFunTradeEvent {
+            metadata: EventMetadata::default(),
+            is_buy: true,
+            ix_name: "buy_exact_quote_in_v2".to_string(),
+            ..Default::default()
+        });
+        let exact_sol = DexEvent::PumpFunBuyExactSolIn(PumpFunTradeEvent {
+            metadata: EventMetadata::default(),
+            is_buy: true,
+            ix_name: "buy_exact_sol_in".to_string(),
+            ..Default::default()
+        });
+
+        let buy_filter = EventTypeFilter::include_only(vec![EventType::PumpFunBuy]);
+        assert!(filter_pumpfun_trade_variant(buy.clone(), Some(&buy_filter)).is_some());
+        assert!(filter_pumpfun_trade_variant(exact_sol.clone(), Some(&buy_filter)).is_some());
+
+        let exact_filter = EventTypeFilter::include_only(vec![EventType::PumpFunBuyExactSolIn]);
+        assert!(filter_pumpfun_trade_variant(buy, Some(&exact_filter)).is_some());
+        assert!(filter_pumpfun_trade_variant(exact_sol, Some(&exact_filter)).is_some());
     }
 
     #[test]

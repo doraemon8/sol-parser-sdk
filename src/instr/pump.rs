@@ -124,7 +124,7 @@ pub fn parse_instruction(
             tx_index,
             block_time_us,
             grpc_recv_us,
-            "buy",
+            "buy_v2",
             false,
         );
     }
@@ -137,7 +137,7 @@ pub fn parse_instruction(
             tx_index,
             block_time_us,
             grpc_recv_us,
-            "buy_exact_quote_in",
+            "buy_exact_quote_in_v2",
             true,
         );
     }
@@ -150,7 +150,7 @@ pub fn parse_instruction(
             tx_index,
             block_time_us,
             grpc_recv_us,
-            "sell",
+            "sell_v2",
         );
     }
 
@@ -914,7 +914,7 @@ mod tests {
                 assert_eq!(t.sharing_config, acc[18]);
                 assert_eq!(t.global_volume_accumulator, acc[19]);
                 assert_eq!(t.associated_user_volume_accumulator, acc[21]);
-                assert_eq!(t.ix_name, "buy");
+                assert_eq!(t.ix_name, "buy_v2");
             }
             other => panic!("expected PumpFunBuy, got {other:?}"),
         }
@@ -929,7 +929,7 @@ mod tests {
 
         match event {
             DexEvent::PumpFunBuy(t) => {
-                assert_eq!(t.ix_name, "buy_exact_quote_in");
+                assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
                 assert_eq!(t.amount, 888);
                 assert_eq!(t.max_sol_cost, 0);
                 assert_eq!(t.quote_amount, 777);

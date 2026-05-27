@@ -108,14 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.2"
+sol-parser-sdk = "0.5.3"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.2", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.3", default-features = false, features = ["parse-zero-copy"] }
 ```
+
+### 发布说明
+
+#### v0.5.3
+
+- 保留真实的 Pump.fun v2 `ix_name`，包括 `buy_v2`、`sell_v2` 和 `buy_exact_quote_in_v2`。
+- 改进 ShredStream 的 Pump.fun v2 解析，对 buy、sell、exact-quote 指令支持短账户列表 best-effort 解析。
+- Pump.fun buy-family 过滤保持双向兼容，订阅 `PumpFunBuy` 或 `PumpFunBuyExactSolIn` 都可以匹配兼容的 buy 变体。
+- 保留 ShredStream 对外层指令的 ALT/default-account best-effort 解析，同时明确 CPI/inner-only 仍无法从 Shred Entry 恢复。
 
 ### 性能测试
 

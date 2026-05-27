@@ -108,14 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.2"
+sol-parser-sdk = "0.5.3"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.2", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.3", default-features = false, features = ["parse-zero-copy"] }
 ```
+
+### Release Notes
+
+#### v0.5.3
+
+- Preserves real Pump.fun v2 `ix_name` values, including `buy_v2`, `sell_v2`, and `buy_exact_quote_in_v2`.
+- Improves ShredStream Pump.fun v2 parsing with best-effort short-account handling for buy, sell, and exact-quote instructions.
+- Treats Pump.fun buy-family filters symmetrically, so `PumpFunBuy` and `PumpFunBuyExactSolIn` subscriptions both match the compatible buy variants.
+- Keeps ShredStream ALT/default-account best-effort parsing for outer instructions while preserving the CPI/inner-only limitation.
 
 ### Performance Testing
 

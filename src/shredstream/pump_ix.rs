@@ -1231,6 +1231,8 @@ fn parse_buy_exact_sol_in_instruction(
 }
 
 /// `buy_v2`：27 个固定账户（IDL `buy_v2`）；mint=#1 bonding_curve=#10 user=#13 fee=#6 base_token_program=#3。
+/// ShredStream can see shortened account lists, so only `mint` is required and all later accounts
+/// are filled best-effort.
 #[inline]
 fn parse_buy_v2_instruction(
     data: &[u8],
@@ -1242,11 +1244,6 @@ fn parse_buy_v2_instruction(
     created_mints: &PumpMintSet,
     mayhem_mints: &PumpMintSet,
 ) -> Option<DexEvent> {
-    const MIN_ACC: usize = 27;
-    if accounts.len() < MIN_ACC {
-        return None;
-    }
-
     let get_account = |idx: usize| -> Option<Pubkey> { accounts.get(idx).copied() };
 
     let (token_amount, sol_amount) = if data.len() >= 16 {
@@ -1322,7 +1319,7 @@ fn parse_buy_v2_instruction(
         total_claimed_tokens: 0,
         current_sol_volume: 0,
         last_update_timestamp: 0,
-        ix_name: "buy".to_string(),
+        ix_name: "buy_v2".to_string(),
         mayhem_mode: is_mayhem_mode,
         cashback_fee_basis_points: 0,
         cashback: 0,
@@ -1343,11 +1340,6 @@ fn parse_buy_exact_quote_in_v2_instruction(
     created_mints: &PumpMintSet,
     mayhem_mints: &PumpMintSet,
 ) -> Option<DexEvent> {
-    const MIN_ACC: usize = 27;
-    if accounts.len() < MIN_ACC {
-        return None;
-    }
-
     let get_account = |idx: usize| -> Option<Pubkey> { accounts.get(idx).copied() };
 
     let (sol_amount, token_amount) = if data.len() >= 16 {
@@ -1424,7 +1416,7 @@ fn parse_buy_exact_quote_in_v2_instruction(
         total_claimed_tokens: 0,
         current_sol_volume: 0,
         last_update_timestamp: 0,
-        ix_name: "buy_exact_quote_in".to_string(),
+        ix_name: "buy_exact_quote_in_v2".to_string(),
         mayhem_mode: is_mayhem_mode,
         cashback_fee_basis_points: 0,
         cashback: 0,
@@ -1435,6 +1427,8 @@ fn parse_buy_exact_quote_in_v2_instruction(
 }
 
 /// `sell_v2`：26 个固定账户（IDL `sell_v2`）。
+/// ShredStream can see shortened account lists, so only `mint` is required and all later accounts
+/// are filled best-effort.
 #[inline]
 fn parse_sell_v2_instruction(
     data: &[u8],
@@ -1444,11 +1438,6 @@ fn parse_sell_v2_instruction(
     tx_index: u64,
     recv_us: i64,
 ) -> Option<DexEvent> {
-    const MIN_ACC: usize = 26;
-    if accounts.len() < MIN_ACC {
-        return None;
-    }
-
     let get_account = |idx: usize| -> Option<Pubkey> { accounts.get(idx).copied() };
 
     let (token_amount, sol_amount) = if data.len() >= 16 {
@@ -1522,7 +1511,7 @@ fn parse_sell_v2_instruction(
         total_claimed_tokens: 0,
         current_sol_volume: 0,
         last_update_timestamp: 0,
-        ix_name: "sell".to_string(),
+        ix_name: "sell_v2".to_string(),
         mayhem_mode: false,
         cashback_fee_basis_points: 0,
         cashback: 0,
@@ -1889,7 +1878,7 @@ mod tests {
 
         match exact_quote {
             DexEvent::PumpFunBuy(t) => {
-                assert_eq!(t.ix_name, "buy_exact_quote_in");
+                assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
                 assert_eq!(t.spendable_quote_in, 500);
                 assert_eq!(t.min_tokens_out, 600);
                 assert_eq!(t.max_sol_cost, 0);
@@ -1902,6 +1891,87 @@ mod tests {
                 assert_eq!(t.fee_program, accounts[23]);
             }
             other => panic!("expected exact buy variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_v2_buy_parses_short_account_lists_best_effort() {
+        let accounts = unique_accounts(16);
+        let no_created = PumpMintSet::new();
+        let no_mayhem = PumpMintSet::new();
+
+        let buy = parse_buy_v2_instruction(
+            &amount_data(100, 200),
+            &accounts,
+            Signature::default(),
+            1,
+            0,
+            9,
+            &no_created,
+            &no_mayhem,
+        )
+        .expect("short buy_v2");
+        match buy {
+            DexEvent::PumpFunBuy(t) => {
+                assert_eq!(t.ix_name, "buy_v2");
+                assert_eq!(t.mint, accounts[1]);
+                assert_eq!(t.amount, 100);
+                assert_eq!(t.max_sol_cost, 200);
+                assert_eq!(t.associated_creator_vault, Pubkey::default());
+                assert_eq!(t.fee_program, Pubkey::default());
+            }
+            other => panic!("expected buy variant, got {other:?}"),
+        }
+
+        let exact_quote = parse_buy_exact_quote_in_v2_instruction(
+            &amount_data(500, 600),
+            &accounts,
+            Signature::default(),
+            1,
+            0,
+            9,
+            &no_created,
+            &no_mayhem,
+        )
+        .expect("short exact quote buy");
+        match exact_quote {
+            DexEvent::PumpFunBuy(t) => {
+                assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
+                assert_eq!(t.mint, accounts[1]);
+                assert_eq!(t.spendable_quote_in, 500);
+                assert_eq!(t.min_tokens_out, 600);
+                assert_eq!(t.quote_amount, 500);
+                assert_eq!(t.associated_creator_vault, Pubkey::default());
+                assert_eq!(t.fee_program, Pubkey::default());
+            }
+            other => panic!("expected exact buy variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_v2_sell_parses_short_account_lists_best_effort() {
+        let accounts = unique_accounts(16);
+
+        let sell = parse_sell_v2_instruction(
+            &amount_data(300, 400),
+            &accounts,
+            Signature::default(),
+            1,
+            0,
+            9,
+        )
+        .expect("short sell_v2");
+
+        match sell {
+            DexEvent::PumpFunSell(t) => {
+                assert_eq!(t.ix_name, "sell_v2");
+                assert_eq!(t.mint, accounts[1]);
+                assert_eq!(t.amount, 300);
+                assert_eq!(t.min_sol_output, 400);
+                assert_eq!(t.associated_creator_vault, Pubkey::default());
+                assert_eq!(t.fee_program, Pubkey::default());
+            }
+            other => panic!("expected sell variant, got {other:?}"),
         }
     }
 

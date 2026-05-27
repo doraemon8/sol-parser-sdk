@@ -279,7 +279,7 @@ fn parse_trade_event_inner_zero_copy(
             (String::new(), 0)
         };
         offset += ix_name_len;
-        let ix_name = crate::logs::pump::normalize_pumpfun_ix_name(&ix_name).to_string();
+        let ix_kind = crate::logs::pump::normalize_pumpfun_ix_name(&ix_name);
 
         // TradeEvent 新增字段 (PUMP_CASHBACK_README): mayhem_mode, cashback_fee_basis_points, cashback
         let mayhem_mode =
@@ -341,7 +341,7 @@ fn parse_trade_event_inner_zero_copy(
         };
 
         // 根据 ix_name 返回不同的事件类型
-        match ix_name.as_str() {
+        match ix_kind {
             "buy" => Some(DexEvent::PumpFunBuy(trade_event)),
             "sell" => Some(DexEvent::PumpFunSell(trade_event)),
             "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(trade_event)),

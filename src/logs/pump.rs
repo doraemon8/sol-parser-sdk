@@ -538,7 +538,7 @@ fn parse_trade_event_optimized(
         } else {
             String::new()
         };
-        let ix_name = normalize_pumpfun_ix_name(&ix_name).to_string();
+        let ix_kind = normalize_pumpfun_ix_name(&ix_name);
 
         // mayhem_mode: bool (1 byte), cashback_fee_basis_points (8), cashback (8) - PUMP_CASHBACK_README
         let mayhem_mode =
@@ -628,7 +628,7 @@ fn parse_trade_event_optimized(
         };
 
         // 根据 ix_name 返回不同的事件类型，支持用户过滤特定交易类型
-        match ix_name.as_str() {
+        match ix_kind {
             "buy" => Some(DexEvent::PumpFunBuy(trade_event)),
             "sell" => Some(DexEvent::PumpFunSell(trade_event)),
             "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(trade_event)),
@@ -868,7 +868,7 @@ pub fn parse_trade_from_data(
         } else {
             String::new()
         };
-        let ix_name = normalize_pumpfun_ix_name(&ix_name).to_string();
+        let ix_kind = normalize_pumpfun_ix_name(&ix_name);
 
         // mayhem_mode (1), cashback_fee_basis_points (8), cashback (8) - PUMP_CASHBACK_README
         let mayhem_mode =
@@ -949,7 +949,7 @@ pub fn parse_trade_from_data(
         };
 
         // 根据 ix_name 返回不同的事件类型
-        match ix_name.as_str() {
+        match ix_kind {
             "buy" => Some(DexEvent::PumpFunBuy(trade_event)),
             "sell" => Some(DexEvent::PumpFunSell(trade_event)),
             "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(trade_event)),

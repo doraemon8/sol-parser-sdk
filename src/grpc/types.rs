@@ -416,7 +416,13 @@ impl EventTypeFilter {
                 event_type,
                 EventType::PumpFunBuy | EventType::PumpFunSell | EventType::PumpFunBuyExactSolIn
             ) {
-                return include_only.contains(&EventType::PumpFunTrade);
+                if include_only.contains(&EventType::PumpFunTrade) {
+                    return true;
+                }
+                if is_pumpfun_buy_family(event_type) {
+                    return include_only.iter().any(|t| is_pumpfun_buy_family(*t));
+                }
+                return false;
             }
             if matches!(event_type, EventType::PumpSwapBuy | EventType::PumpSwapSell) {
                 return include_only.contains(&EventType::PumpSwapTrade);
@@ -432,6 +438,11 @@ impl EventTypeFilter {
                 event_type,
                 EventType::PumpFunBuy | EventType::PumpFunSell | EventType::PumpFunBuyExactSolIn
             ) && exclude_types.contains(&EventType::PumpFunTrade)
+            {
+                return false;
+            }
+            if is_pumpfun_buy_family(event_type)
+                && exclude_types.iter().any(|t| is_pumpfun_buy_family(*t))
             {
                 return false;
             }
@@ -637,6 +648,11 @@ impl EventTypeFilter {
 }
 
 #[inline]
+fn is_pumpfun_buy_family(event_type: EventType) -> bool {
+    matches!(event_type, EventType::PumpFunBuy | EventType::PumpFunBuyExactSolIn)
+}
+
+#[inline]
 pub fn event_type_from_dex_event(event: &crate::core::events::DexEvent) -> Option<EventType> {
     use crate::core::events::DexEvent;
     match event {
@@ -781,6 +797,11 @@ mod event_type_filter_tests {
 
         let pump_specific = EventTypeFilter::include_only(vec![EventType::PumpFunBuy]);
         assert!(pump_specific.should_include(EventType::PumpFunTrade));
+        assert!(pump_specific.should_include(EventType::PumpFunBuyExactSolIn));
+
+        let pump_exact_buy = EventTypeFilter::include_only(vec![EventType::PumpFunBuyExactSolIn]);
+        assert!(pump_exact_buy.should_include(EventType::PumpFunTrade));
+        assert!(pump_exact_buy.should_include(EventType::PumpFunBuy));
 
         let pumpswap = EventTypeFilter::include_only(vec![EventType::PumpSwapTrade]);
         assert!(pumpswap.should_include(EventType::PumpSwapBuy));
@@ -829,6 +850,7 @@ mod event_type_filter_tests {
         let pump = EventTypeFilter::exclude_types(vec![EventType::PumpFunBuy]);
         assert!(pump.includes_pumpfun());
         assert!(!pump.should_include(EventType::PumpFunBuy));
+        assert!(!pump.should_include(EventType::PumpFunBuyExactSolIn));
         assert!(pump.should_include(EventType::PumpFunSell));
     }
 }
