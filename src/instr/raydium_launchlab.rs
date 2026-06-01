@@ -1,14 +1,14 @@
-//! Raydium Launchpad 指令解析器
+//! Raydium LaunchLab 指令解析器
 //!
-//! 事件类型名称沿用历史的 `Bonk*`，底层按 `idl/raydium_launchpad.json`
-//! 的真实 instruction discriminator 和账户布局解析。
+//! 底层按 `idls/raydium_launchpad.json` 的真实 instruction discriminator
+//! 和账户布局解析，对外事件名统一为 `RaydiumLaunchlab*`。
 
 use super::program_ids;
 use super::utils::*;
 use crate::core::events::*;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
-/// Raydium Launchpad instruction discriminators from `idl/raydium_launchpad.json`.
+/// Raydium LaunchLab instruction discriminators from `idls/raydium_launchpad.json`.
 pub mod discriminators {
     pub const BUY_EXACT_IN: [u8; 8] = [250, 234, 13, 123, 213, 156, 19, 236];
     pub const BUY_EXACT_OUT: [u8; 8] = [24, 211, 116, 40, 105, 3, 153, 56];
@@ -21,10 +21,10 @@ pub mod discriminators {
     pub const SELL_EXACT_OUT: [u8; 8] = [95, 200, 71, 34, 8, 9, 11, 166];
 }
 
-/// Raydium Launchpad 程序 ID
-pub const PROGRAM_ID_PUBKEY: Pubkey = program_ids::BONK_PROGRAM_ID;
+/// Raydium LaunchLab 程序 ID
+pub const PROGRAM_ID_PUBKEY: Pubkey = program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID;
 
-/// 主要的 Raydium Launchpad 指令解析函数
+/// 主要的 Raydium LaunchLab 指令解析函数
 pub fn parse_instruction(
     instruction_data: &[u8],
     accounts: &[Pubkey],
@@ -86,9 +86,8 @@ pub fn parse_instruction(
         | discriminators::INITIALIZE_WITH_TOKEN_2022 => {
             parse_pool_create_instruction(data, accounts, signature, slot, tx_index, block_time_us)
         }
-        // The Launchpad IDL does not emit a migration event with the old
-        // `BonkMigrateAmmEvent` layout. Do not synthesize one with guessed
-        // liquidity fields.
+        // The LaunchLab IDL does not expose enough fields to synthesize a
+        // migration event with the SDK's migrate layout.
         discriminators::MIGRATE_TO_AMM | discriminators::MIGRATE_TO_CPSWAP => None,
         _ => None,
     }
@@ -116,7 +115,7 @@ fn parse_trade_instruction(
     let pool_state = get_account(accounts, 4)?;
     let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state);
 
-    Some(DexEvent::BonkTrade(BonkTradeEvent {
+    Some(DexEvent::RaydiumLaunchlabTrade(RaydiumLaunchlabTradeEvent {
         metadata,
         pool_state,
         user: get_account(accounts, 0).unwrap_or_default(),
@@ -142,7 +141,7 @@ fn parse_pool_create_instruction(
     let pool_state = get_account(accounts, 5)?;
     let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state);
 
-    Some(DexEvent::BonkPoolCreate(BonkPoolCreateEvent {
+    Some(DexEvent::RaydiumLaunchlabPoolCreate(RaydiumLaunchlabPoolCreateEvent {
         metadata,
         base_mint_param,
         pool_state,

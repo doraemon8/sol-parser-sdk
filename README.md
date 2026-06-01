@@ -14,7 +14,7 @@
     <a href="https://docs.rs/sol-parser-sdk">
         <img src="https://docs.rs/sol-parser-sdk/badge.svg" alt="Documentation">
     </a>
-    <a href="https://github.com/0xfnzero/solana-streamer/blob/main/LICENSE">
+    <a href="https://github.com/0xfnzero/sol-parser-sdk/blob/main/LICENSE">
         <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
     </a>
 </p>
@@ -108,16 +108,24 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.4"
+sol-parser-sdk = "0.5.5"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.4", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.5", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.5
+
+- Aligns ShredStream static-account parsing across Rust, Node.js, Python, and Go.
+- Keeps V0 ALT-loaded instruction accounts on the hot path with default pubkey placeholders instead of dropping the whole instruction.
+- Adds discriminator fallback when a ShredStream outer program id is ALT-loaded and not present in the static account table.
+- Improves Pump.fun ShredStream parity for create/create_v2, v2 short-account trades, and event-type filtering.
+- Refreshes multi-protocol routing and account-fill documentation for Pump.fun, PumpSwap, Pump Fees, Raydium, Orca, and Meteora paths.
 
 #### v0.5.4
 
@@ -176,6 +184,15 @@ cargo run --example pumpswap_ordered --release
 | **Meteora DAMM** | | |
 | Meteora DAMM V2 events | `cargo run --example meteora_damm_grpc --release` | [examples/meteora_damm_grpc.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_damm_grpc.rs) |
 | Parse Meteora DAMM tx by signature | `TX_SIGNATURE=<sig> cargo run --example parse_meteora_damm_tx --release` | [examples/parse_meteora_damm_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_meteora_damm_tx.rs) |
+| **Non-Pump DEX dry-run scenarios** | | |
+| Raydium LaunchLab migration filter | `cargo run --example raydium_launchlab_migration` | [examples/raydium_launchlab_migration.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/raydium_launchlab_migration.rs) |
+| Raydium CPMM new pool filter | `cargo run --example raydium_cpmm_new_pool` | [examples/raydium_cpmm_new_pool.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/raydium_cpmm_new_pool.rs) |
+| Raydium CLMM token price math | `cargo run --example raydium_clmm_token_price` | [examples/raydium_clmm_token_price.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/raydium_clmm_token_price.rs) |
+| Orca Whirlpool token price math | `cargo run --example orca_whirlpool_token_price` | [examples/orca_whirlpool_token_price.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/orca_whirlpool_token_price.rs) |
+| Meteora DAMM new pool baseline | `cargo run --example meteora_damm_new_pool` | [examples/meteora_damm_new_pool.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_damm_new_pool.rs) |
+| Meteora DBC token price math | `cargo run --example meteora_dbc_token_price` | [examples/meteora_dbc_token_price.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_dbc_token_price.rs) |
+| Wallet trade filter | `cargo run --example wallet_trade_filter` | [examples/wallet_trade_filter.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/wallet_trade_filter.rs) |
+| gRPC latency slot compare config | `cargo run --example grpc_latency_slot_compare` | [examples/grpc_latency_slot_compare.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/grpc_latency_slot_compare.rs) |
 | **Account subscription** | | |
 | Token account balance updates | `TOKEN_ACCOUNT=<pubkey> cargo run --example token_balance_listen --release` | [examples/token_balance_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/token_balance_listen.rs) |
 | Nonce account state changes | `NONCE_ACCOUNT=<pubkey> cargo run --example nonce_listen --release` | [examples/nonce_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/nonce_listen.rs) |
@@ -328,7 +345,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - ✅ **PumpFun** - Meme coin trading (ultra-fast zero-copy path, incl. v2 instructions)
 - ✅ **Pump Fees** - Pump fee-sharing configuration events
 - ✅ **PumpSwap** - PumpFun swap protocol
-- ✅ **Raydium Launchpad / Bonk** - Token launch platform
+- ✅ **Raydium LaunchLab** - Token launch platform
 - ✅ **Raydium AMM V4** - Automated Market Maker
 - ✅ **Raydium CLMM** - Concentrated Liquidity
 - ✅ **Raydium CPMM** - Concentrated Pool
@@ -336,6 +353,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - ✅ **Meteora Pools** - Dynamic AMM
 - ✅ **Meteora DAMM v2** - Dynamic AMM V2
 - ✅ **Meteora DLMM** - Dynamic Liquidity Market Maker
+- 🚧 **Meteora DBC** - Program id and filters added; transaction/account parser pass pending
 
 ### Event Types
 Each protocol supports:
@@ -343,6 +361,25 @@ Each protocol supports:
 - 💧 **Liquidity Events** - Deposits/withdrawals
 - 🏊 **Pool Events** - Pool creation/initialization
 - 🎯 **Position Events** - Open/close positions (CLMM)
+
+### Non-Pump DEX Support Matrix
+
+| Protocol | Events | Accounts | Examples | Language constants |
+|----------|--------|----------|----------|--------------------|
+| Raydium LaunchLab | Trade, pool create, migrate | Pending | Migration, buy/sell oracle planned | Rust, Node, Python, Go |
+| Raydium CPMM | Swap, deposit, withdraw, initialize | AmmConfig, PoolState | New pool, token price | Rust, Node, Python, Go |
+| Raydium CLMM | Swap, pool, position, liquidity | AmmConfig, PoolState, TickArray | Token price | Rust, Node, Python, Go |
+| Raydium AMM V4 | Swap, deposit, withdraw, initialize2 | Pending | Token price oracle planned | Rust, Node, Python, Go |
+| Orca Whirlpool | Swap, liquidity, pool init | Whirlpool, Position, TickArray, FeeTier, Config | Token price | Rust, Node, Python, Go |
+| Meteora Pools | Swap, liquidity, pool create, fees | Pending | Token price oracle planned | Rust, Node, Python, Go |
+| Meteora DAMM V2 | Swap, liquidity, position | Pending | New pool, token price oracle planned | Rust, Node, Python, Go |
+| Meteora DLMM | Swap, liquidity, bin/position | Pending | Token price oracle planned | Rust, Node, Python, Go |
+| Meteora DBC | Swap, initialize pool, curve complete (Rust log parser) | Pending | Token price, migration oracle planned | Rust, Node, Python, Go |
+
+The canonical cross-language baseline is tracked in
+[`protocols/canonical.json`](protocols/canonical.json). The current audit and
+remaining parser work are documented in
+[`docs/non-pump-dex-gap-analysis.md`](docs/non-pump-dex-gap-analysis.md).
 
 ---
 
@@ -410,7 +447,7 @@ let event_filter = EventTypeFilter::include_only(vec![
     EventType::PumpFunBuyExactSolIn,
     EventType::PumpSwapBuy,
     EventType::PumpSwapSell,
-    EventType::BonkTrade,
+    EventType::RaydiumLaunchlabTrade,
     EventType::RaydiumCpmmSwap,
     EventType::RaydiumAmmV4Swap,
     EventType::RaydiumClmmSwap,

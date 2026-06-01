@@ -146,7 +146,6 @@ pub fn fill_trade_accounts(e: &mut PumpFunTradeEvent, get: &AccountGetter<'_>) {
                 }
             }
         }
-        return;
     }
 }
 

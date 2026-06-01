@@ -25,6 +25,8 @@ pub mod discriminators {
         [228, 69, 165, 46, 81, 203, 154, 29, 175, 242, 8, 157, 30, 247, 185, 169];
     pub const REMOVE_LIQUIDITY: [u8; 16] =
         [228, 69, 165, 46, 81, 203, 154, 29, 87, 46, 88, 98, 175, 96, 34, 91];
+    pub const INITIALIZE_POOL: [u8; 16] =
+        [228, 69, 165, 46, 81, 203, 154, 29, 228, 50, 246, 85, 203, 66, 134, 37];
     pub const CREATE_POSITION: [u8; 16] =
         [228, 69, 165, 46, 81, 203, 154, 29, 156, 15, 119, 198, 29, 181, 221, 55];
     pub const CLOSE_POSITION: [u8; 16] =
@@ -34,13 +36,16 @@ pub mod discriminators {
 /// 主入口：根据 discriminator 解析事件
 #[inline]
 pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    match disc {
-        &discriminators::SWAP => parse_swap(data, metadata),
-        &discriminators::SWAP2 => parse_swap2(data, metadata),
-        &discriminators::ADD_LIQUIDITY => parse_add_liquidity(data, metadata),
-        &discriminators::REMOVE_LIQUIDITY => parse_remove_liquidity(data, metadata),
-        &discriminators::CREATE_POSITION => parse_create_position(data, metadata),
-        &discriminators::CLOSE_POSITION => parse_close_position(data, metadata),
+    match *disc {
+        discriminators::SWAP => parse_swap(data, metadata),
+        discriminators::SWAP2 => parse_swap2(data, metadata),
+        discriminators::ADD_LIQUIDITY => parse_add_liquidity(data, metadata),
+        discriminators::REMOVE_LIQUIDITY => parse_remove_liquidity(data, metadata),
+        discriminators::INITIALIZE_POOL => {
+            crate::logs::meteora_damm::parse_initialize_pool_from_data(data, metadata)
+        }
+        discriminators::CREATE_POSITION => parse_create_position(data, metadata),
+        discriminators::CLOSE_POSITION => parse_close_position(data, metadata),
         _ => None,
     }
 }

@@ -13,17 +13,17 @@ pub mod discriminators {
 
 #[inline]
 pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    match disc {
-        &discriminators::TRADED => {
+    match *disc {
+        discriminators::TRADED => {
             crate::logs::orca_whirlpool::parse_traded_from_data(data, metadata)
         }
-        &discriminators::LIQUIDITY_INCREASED => {
+        discriminators::LIQUIDITY_INCREASED => {
             crate::logs::orca_whirlpool::parse_liquidity_increased_from_data(data, metadata)
         }
-        &discriminators::LIQUIDITY_DECREASED => {
+        discriminators::LIQUIDITY_DECREASED => {
             crate::logs::orca_whirlpool::parse_liquidity_decreased_from_data(data, metadata)
         }
-        &discriminators::POOL_INITIALIZED => {
+        discriminators::POOL_INITIALIZED => {
             crate::logs::orca_whirlpool::parse_pool_initialized_from_data(data, metadata)
         }
         _ => None,

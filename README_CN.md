@@ -14,7 +14,7 @@
     <a href="https://docs.rs/sol-parser-sdk">
         <img src="https://docs.rs/sol-parser-sdk/badge.svg" alt="Documentation">
     </a>
-    <a href="https://github.com/0xfnzero/solana-streamer/blob/main/LICENSE">
+    <a href="https://github.com/0xfnzero/sol-parser-sdk/blob/main/LICENSE">
         <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
     </a>
 </p>
@@ -108,16 +108,24 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.4"
+sol-parser-sdk = "0.5.5"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.4", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.5", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
+
+#### v0.5.5
+
+- 对齐 Rust、Node.js、Python、Go 的 ShredStream 静态账户解析语义。
+- V0 ALT-loaded 指令账户不再整条跳过，热路径用默认 pubkey 占位继续 best-effort 解析。
+- 当 ShredStream 外层 program id 来自 ALT 且不在静态账户表中时，按候选 program id 做 discriminator fallback。
+- 改进 Pump.fun ShredStream create/create_v2、v2 短账户交易和事件类型过滤的跨语言一致性。
+- 更新 Pump.fun、PumpSwap、Pump Fees、Raydium、Orca、Meteora 的多协议路由与账户补全文档。
 
 #### v0.5.4
 
@@ -177,6 +185,15 @@ cargo run --example pumpswap_ordered --release
 | **Meteora DAMM** | | |
 | Meteora DAMM V2 事件 | `cargo run --example meteora_damm_grpc --release` | [examples/meteora_damm_grpc.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_damm_grpc.rs) |
 | 按签名解析 Meteora DAMM 交易 | `TX_SIGNATURE=<sig> cargo run --example parse_meteora_damm_tx --release` | [examples/parse_meteora_damm_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_meteora_damm_tx.rs) |
+| **非 Pump DEX dry-run 场景** | | |
+| Raydium LaunchLab migration 过滤 | `cargo run --example raydium_launchlab_migration` | [examples/raydium_launchlab_migration.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/raydium_launchlab_migration.rs) |
+| Raydium CPMM 新池过滤 | `cargo run --example raydium_cpmm_new_pool` | [examples/raydium_cpmm_new_pool.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/raydium_cpmm_new_pool.rs) |
+| Raydium CLMM 价格计算 | `cargo run --example raydium_clmm_token_price` | [examples/raydium_clmm_token_price.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/raydium_clmm_token_price.rs) |
+| Orca Whirlpool 价格计算 | `cargo run --example orca_whirlpool_token_price` | [examples/orca_whirlpool_token_price.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/orca_whirlpool_token_price.rs) |
+| Meteora DAMM 新池基线 | `cargo run --example meteora_damm_new_pool` | [examples/meteora_damm_new_pool.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_damm_new_pool.rs) |
+| Meteora DBC 价格计算 | `cargo run --example meteora_dbc_token_price` | [examples/meteora_dbc_token_price.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_dbc_token_price.rs) |
+| 钱包交易过滤 | `cargo run --example wallet_trade_filter` | [examples/wallet_trade_filter.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/wallet_trade_filter.rs) |
+| gRPC 延迟与 slot 对比配置 | `cargo run --example grpc_latency_slot_compare` | [examples/grpc_latency_slot_compare.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/grpc_latency_slot_compare.rs) |
 | **账户订阅** | | |
 | Token 账户余额变化 | `TOKEN_ACCOUNT=<pubkey> cargo run --example token_balance_listen --release` | [examples/token_balance_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/token_balance_listen.rs) |
 | Nonce 账户状态变化 | `NONCE_ACCOUNT=<pubkey> cargo run --example nonce_listen --release` | [examples/nonce_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/nonce_listen.rs) |
@@ -329,7 +346,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - ✅ **PumpFun** - Meme 币交易（超快零拷贝路径，含 v2 指令）
 - ✅ **Pump Fees** - Pump 费用分成配置事件
 - ✅ **PumpSwap** - PumpFun 交换协议
-- ✅ **Raydium Launchpad / Bonk** - 代币发射平台
+- ✅ **Raydium LaunchLab** - 代币发射平台
 - ✅ **Raydium AMM V4** - 自动做市商
 - ✅ **Raydium CLMM** - 集中流动性做市
 - ✅ **Raydium CPMM** - 集中池做市
@@ -337,6 +354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - ✅ **Meteora Pools** - 动态 AMM
 - ✅ **Meteora DAMM v2** - 动态 AMM V2
 - ✅ **Meteora DLMM** - 动态流动性做市
+- 🚧 **Meteora DBC** - 已补 program id 与过滤常量，交易/账户 parser 后续补齐
 
 ### 事件类型
 每个协议支持：
@@ -344,6 +362,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - 💧 **流动性事件** - 存款/提款
 - 🏊 **池事件** - 池创建/初始化
 - 🎯 **仓位事件** - 开仓/平仓（CLMM）
+
+### 非 Pump DEX 支持矩阵
+
+| 协议 | 事件 | 账户 | 示例 | 语言常量 |
+|------|------|------|------|----------|
+| Raydium LaunchLab | Trade、PoolCreate、Migrate | 待补 | Migration、buy/sell oracle 规划中 | Rust、Node、Python、Go |
+| Raydium CPMM | Swap、Deposit、Withdraw、Initialize | AmmConfig、PoolState | New pool、token price | Rust、Node、Python、Go |
+| Raydium CLMM | Swap、Pool、Position、Liquidity | AmmConfig、PoolState、TickArray | Token price | Rust、Node、Python、Go |
+| Raydium AMM V4 | Swap、Deposit、Withdraw、Initialize2 | 待补 | Token price oracle 规划中 | Rust、Node、Python、Go |
+| Orca Whirlpool | Swap、Liquidity、Pool init | Whirlpool、Position、TickArray、FeeTier、Config | Token price | Rust、Node、Python、Go |
+| Meteora Pools | Swap、Liquidity、Pool create、Fees | 待补 | Token price oracle 规划中 | Rust、Node、Python、Go |
+| Meteora DAMM V2 | Swap、Liquidity、Position | 待补 | New pool、token price oracle 规划中 | Rust、Node、Python、Go |
+| Meteora DLMM | Swap、Liquidity、Bin/Position | 待补 | Token price oracle 规划中 | Rust、Node、Python、Go |
+| Meteora DBC | Swap、InitializePool、CurveComplete（Rust log parser） | 待补 | Token price、migration oracle 规划中 | Rust、Node、Python、Go |
+
+跨语言基线见 [`protocols/canonical.json`](protocols/canonical.json)，当前审计和剩余 parser 工作见
+[`docs/non-pump-dex-gap-analysis.md`](docs/non-pump-dex-gap-analysis.md)。
 
 ---
 
@@ -411,7 +446,7 @@ let event_filter = EventTypeFilter::include_only(vec![
     EventType::PumpFunBuyExactSolIn,
     EventType::PumpSwapBuy,
     EventType::PumpSwapSell,
-    EventType::BonkTrade,
+    EventType::RaydiumLaunchlabTrade,
     EventType::RaydiumCpmmSwap,
     EventType::RaydiumAmmV4Swap,
     EventType::RaydiumClmmSwap,

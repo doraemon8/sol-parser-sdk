@@ -10,11 +10,11 @@ use solana_sdk::pubkey::Pubkey;
 /// PumpFun program ID as Pubkey constant
 pub const PUMPFUN_PROGRAM_ID: Pubkey = pubkey!("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 
-/// Raydium LaunchLab / Launchpad program ID as Pubkey constant.
+/// Raydium LaunchLab program ID as Pubkey constant.
 ///
-/// The SDK keeps the historical Bonk event names for compatibility, but this
-/// parser routes the Raydium Launchpad IDL (`idl/raydium_launchpad.json`).
-pub const BONK_PROGRAM_ID: Pubkey = pubkey!("LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj");
+/// Parser routes the Raydium LaunchLab IDL (`idls/raydium_launchpad.json`).
+pub const RAYDIUM_LAUNCHLAB_PROGRAM_ID: Pubkey =
+    pubkey!("LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj");
 
 /// PumpSwap program ID as Pubkey constant
 pub const PUMPSWAP_PROGRAM_ID: Pubkey = pubkey!("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA");
@@ -46,3 +46,6 @@ pub const METEORA_DAMM_V2_PROGRAM_ID: Pubkey =
 
 /// Meteora DLMM program ID as Pubkey constant
 pub const METEORA_DLMM_PROGRAM_ID: Pubkey = pubkey!("LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo");
+
+/// Meteora DBC program ID as Pubkey constant
+pub const METEORA_DBC_PROGRAM_ID: Pubkey = pubkey!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");

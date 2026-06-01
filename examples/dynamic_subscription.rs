@@ -18,11 +18,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run_dynamic_subscription_example() -> Result<(), Box<dyn std::error::Error>> {
     // 创建配置
-    let mut config: ClientConfig = ClientConfig::default();
-    config.enable_metrics = true;
-    config.connection_timeout_ms = 10000;
-    config.request_timeout_ms = 30000;
-    config.enable_tls = true;
+    let config = ClientConfig {
+        enable_metrics: true,
+        connection_timeout_ms: 10000,
+        request_timeout_ms: 30000,
+        enable_tls: true,
+        ..Default::default()
+    };
 
     const GRPC_ENDPOINT_DEFAULT: &str = "https://solana-yellowstone-grpc.publicnode.com:443";
     const GRPC_AUTH_TOKEN_DEFAULT: &str =
@@ -78,13 +80,13 @@ async fn run_dynamic_subscription_example() -> Result<(), Box<dyn std::error::Er
                     _ => "",
                 };
 
-                if current_protocol != "" && current_protocol != last_protocol {
+                if !current_protocol.is_empty() && current_protocol != last_protocol {
                     println!("📦 [Event #{}] Received: {}", event_count, current_protocol);
                     last_protocol = current_protocol.to_string();
                 }
 
                 // 每 50 个事件打印一次统计
-                if event_count % 50 == 0 {
+                if event_count.is_multiple_of(50) {
                     println!("📈 Total events received: {}", event_count);
                 }
             } else {

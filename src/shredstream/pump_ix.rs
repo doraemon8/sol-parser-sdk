@@ -17,9 +17,10 @@ use crate::core::events::{
 };
 use crate::grpc::types::EventTypeFilter;
 use crate::instr::program_ids::{
-    BONK_PROGRAM_ID, METEORA_DAMM_V2_PROGRAM_ID, METEORA_DLMM_PROGRAM_ID, METEORA_POOLS_PROGRAM_ID,
+    METEORA_DAMM_V2_PROGRAM_ID, METEORA_DLMM_PROGRAM_ID, METEORA_POOLS_PROGRAM_ID,
     ORCA_WHIRLPOOL_PROGRAM_ID, PUMPSWAP_PROGRAM_ID, PUMP_FEES_PROGRAM_ID,
     RAYDIUM_AMM_V4_PROGRAM_ID, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID,
+    RAYDIUM_LAUNCHLAB_PROGRAM_ID,
 };
 use crate::instr::pump::discriminators;
 use crate::instr::pump::PROGRAM_ID_PUBKEY;
@@ -28,7 +29,7 @@ use crate::instr::utils::{
 };
 use crate::instr::{
     meteora_amm, meteora_damm, orca_whirlpool, pump_amm, pump_fees, raydium_amm, raydium_clmm,
-    raydium_cpmm, raydium_launchpad,
+    raydium_cpmm, raydium_launchlab,
 };
 
 type PumpMintSet = SmallVec<[Pubkey; 4]>;
@@ -49,7 +50,7 @@ fn supported_unified_outer_programs() -> &'static [Pubkey] {
     &[
         PUMPSWAP_PROGRAM_ID,
         PUMP_FEES_PROGRAM_ID,
-        BONK_PROGRAM_ID,
+        RAYDIUM_LAUNCHLAB_PROGRAM_ID,
         RAYDIUM_CPMM_PROGRAM_ID,
         RAYDIUM_CLMM_PROGRAM_ID,
         RAYDIUM_AMM_V4_PROGRAM_ID,
@@ -126,19 +127,19 @@ fn unified_outer_data_may_parse(program_id: Pubkey, data: &[u8]) -> bool {
                 | pump_fees::UPDATE_FEE_SHARES_V2_IX
                 | pump_fees::UPSERT_FEE_TIERS_IX
         )
-    } else if program_id == BONK_PROGRAM_ID {
+    } else if program_id == RAYDIUM_LAUNCHLAB_PROGRAM_ID {
         let Some(disc) = disc8(data) else {
             return false;
         };
         matches!(
             disc,
-            raydium_launchpad::discriminators::BUY_EXACT_IN
-                | raydium_launchpad::discriminators::BUY_EXACT_OUT
-                | raydium_launchpad::discriminators::SELL_EXACT_IN
-                | raydium_launchpad::discriminators::SELL_EXACT_OUT
-                | raydium_launchpad::discriminators::INITIALIZE
-                | raydium_launchpad::discriminators::INITIALIZE_V2
-                | raydium_launchpad::discriminators::INITIALIZE_WITH_TOKEN_2022
+            raydium_launchlab::discriminators::BUY_EXACT_IN
+                | raydium_launchlab::discriminators::BUY_EXACT_OUT
+                | raydium_launchlab::discriminators::SELL_EXACT_IN
+                | raydium_launchlab::discriminators::SELL_EXACT_OUT
+                | raydium_launchlab::discriminators::INITIALIZE
+                | raydium_launchlab::discriminators::INITIALIZE_V2
+                | raydium_launchlab::discriminators::INITIALIZE_WITH_TOKEN_2022
         )
     } else if program_id == RAYDIUM_CPMM_PROGRAM_ID {
         let Some(disc) = disc8(data) else {
@@ -235,7 +236,7 @@ fn unknown_outer_data_may_parse(data: &[u8], filter: Option<&EventTypeFilter>) -
 
 #[inline(always)]
 fn push_unique_mint(mints: &mut PumpMintSet, mint: Pubkey) {
-    if !mints.iter().any(|existing| *existing == mint) {
+    if !mints.contains(&mint) {
         mints.push(mint);
     }
 }
@@ -522,8 +523,8 @@ fn is_supported_unified_outer_program(
         f.includes_pumpswap()
     } else if *program_id == PUMP_FEES_PROGRAM_ID {
         f.includes_pump_fees()
-    } else if *program_id == BONK_PROGRAM_ID {
-        f.includes_raydium_launchpad()
+    } else if *program_id == RAYDIUM_LAUNCHLAB_PROGRAM_ID {
+        f.includes_raydium_launchlab()
     } else if *program_id == RAYDIUM_CPMM_PROGRAM_ID {
         f.includes_raydium_cpmm()
     } else if *program_id == RAYDIUM_CLMM_PROGRAM_ID {
@@ -1590,7 +1591,7 @@ mod tests {
         for program_id in [
             PUMPSWAP_PROGRAM_ID,
             PUMP_FEES_PROGRAM_ID,
-            BONK_PROGRAM_ID,
+            RAYDIUM_LAUNCHLAB_PROGRAM_ID,
             RAYDIUM_CPMM_PROGRAM_ID,
             RAYDIUM_CLMM_PROGRAM_ID,
             RAYDIUM_AMM_V4_PROGRAM_ID,

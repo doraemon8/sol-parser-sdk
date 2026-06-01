@@ -56,11 +56,11 @@ pub fn parse_amm_config(account: &AccountData, metadata: EventMetadata) -> Optio
         padding: read_u64_array(data, &mut offset)?,
     };
 
-    Some(DexEvent::RaydiumClmmAmmConfigAccount(RaydiumClmmAmmConfigAccountEvent {
+    Some(DexEvent::RaydiumClmmAmmConfigAccount(Box::new(RaydiumClmmAmmConfigAccountEvent {
         metadata,
         pubkey: account.pubkey,
         amm_config,
-    }))
+    })))
 }
 
 pub fn parse_pool_state(account: &AccountData, metadata: EventMetadata) -> Option<DexEvent> {
@@ -113,11 +113,11 @@ pub fn parse_pool_state(account: &AccountData, metadata: EventMetadata) -> Optio
         padding2: read_u64_array(data, &mut offset)?,
     };
 
-    Some(DexEvent::RaydiumClmmPoolStateAccount(RaydiumClmmPoolStateAccountEvent {
+    Some(DexEvent::RaydiumClmmPoolStateAccount(Box::new(RaydiumClmmPoolStateAccountEvent {
         metadata,
         pubkey: account.pubkey,
         pool_state,
-    }))
+    })))
 }
 
 pub fn parse_tick_array_state(account: &AccountData, metadata: EventMetadata) -> Option<DexEvent> {
@@ -144,11 +144,13 @@ pub fn parse_tick_array_state(account: &AccountData, metadata: EventMetadata) ->
         padding: read_u8_array(data, &mut offset)?,
     };
 
-    Some(DexEvent::RaydiumClmmTickArrayStateAccount(RaydiumClmmTickArrayStateAccountEvent {
-        metadata,
-        pubkey: account.pubkey,
-        tick_array_state,
-    }))
+    Some(DexEvent::RaydiumClmmTickArrayStateAccount(Box::new(
+        RaydiumClmmTickArrayStateAccountEvent {
+            metadata,
+            pubkey: account.pubkey,
+            tick_array_state,
+        },
+    )))
 }
 
 pub fn is_amm_config_account(data: &[u8]) -> bool {

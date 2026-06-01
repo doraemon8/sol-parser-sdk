@@ -1,7 +1,7 @@
 //! Solana DEX 事件解析器核心模块
 //!
 //! 提供纯函数式的 DEX 事件解析能力，支持：
-//! - PumpFun、Bonk、PumpSwap、Raydium CLMM/CPMM
+//! - PumpFun、RaydiumLaunchlab、PumpSwap、Raydium CLMM/CPMM
 //! - 指令+日志数据的智能合并
 //! - 零拷贝、高性能解析
 //! - 统一的事件格式

@@ -48,11 +48,17 @@ pub enum DexEvent {
     MeteoraDammV2ClosePosition(MeteoraDammV2ClosePositionEvent), // - 已对接
     MeteoraDammV2AddLiquidity(MeteoraDammV2AddLiquidityEvent), // - 已对接
     MeteoraDammV2RemoveLiquidity(MeteoraDammV2RemoveLiquidityEvent), // - 已对接
+    MeteoraDammV2InitializePool(MeteoraDammV2InitializePoolEvent), // - 已对接
 
-    // Bonk 事件
-    BonkTrade(BonkTradeEvent),
-    BonkPoolCreate(BonkPoolCreateEvent),
-    BonkMigrateAmm(BonkMigrateAmmEvent),
+    // Meteora DBC 事件
+    MeteoraDbcSwap(MeteoraDbcSwapEvent),
+    MeteoraDbcInitializePool(MeteoraDbcInitializePoolEvent),
+    MeteoraDbcCurveComplete(MeteoraDbcCurveCompleteEvent),
+
+    // RaydiumLaunchlab 事件
+    RaydiumLaunchlabTrade(RaydiumLaunchlabTradeEvent),
+    RaydiumLaunchlabPoolCreate(RaydiumLaunchlabPoolCreateEvent),
+    RaydiumLaunchlabMigrateAmm(RaydiumLaunchlabMigrateAmmEvent),
 
     // Raydium CLMM 事件
     RaydiumClmmSwap(RaydiumClmmSwapEvent),
@@ -72,15 +78,17 @@ pub enum DexEvent {
     RaydiumClmmSettleLimitOrder(RaydiumClmmSettleLimitOrderEvent),
     RaydiumClmmUpdateRewardInfos(RaydiumClmmUpdateRewardInfosEvent),
     RaydiumClmmCollectFee(RaydiumClmmCollectFeeEvent),
-    RaydiumClmmAmmConfigAccount(RaydiumClmmAmmConfigAccountEvent),
-    RaydiumClmmPoolStateAccount(RaydiumClmmPoolStateAccountEvent),
-    RaydiumClmmTickArrayStateAccount(RaydiumClmmTickArrayStateAccountEvent),
+    RaydiumClmmAmmConfigAccount(Box<RaydiumClmmAmmConfigAccountEvent>),
+    RaydiumClmmPoolStateAccount(Box<RaydiumClmmPoolStateAccountEvent>),
+    RaydiumClmmTickArrayStateAccount(Box<RaydiumClmmTickArrayStateAccountEvent>),
 
     // Raydium CPMM 事件
     RaydiumCpmmSwap(RaydiumCpmmSwapEvent),
     RaydiumCpmmDeposit(RaydiumCpmmDepositEvent),
     RaydiumCpmmWithdraw(RaydiumCpmmWithdrawEvent),
     RaydiumCpmmInitialize(RaydiumCpmmInitializeEvent),
+    RaydiumCpmmAmmConfigAccount(Box<RaydiumCpmmAmmConfigAccountEvent>),
+    RaydiumCpmmPoolStateAccount(Box<RaydiumCpmmPoolStateAccountEvent>),
 
     // Raydium AMM V4 事件
     RaydiumAmmV4Swap(RaydiumAmmV4SwapEvent),
@@ -94,6 +102,11 @@ pub enum DexEvent {
     OrcaWhirlpoolLiquidityIncreased(OrcaWhirlpoolLiquidityIncreasedEvent),
     OrcaWhirlpoolLiquidityDecreased(OrcaWhirlpoolLiquidityDecreasedEvent),
     OrcaWhirlpoolPoolInitialized(OrcaWhirlpoolPoolInitializedEvent),
+    OrcaWhirlpoolAccount(Box<OrcaWhirlpoolAccountEvent>),
+    OrcaPositionAccount(Box<OrcaPositionAccountEvent>),
+    OrcaTickArrayAccount(Box<OrcaTickArrayAccountEvent>),
+    OrcaFeeTierAccount(Box<OrcaFeeTierAccountEvent>),
+    OrcaWhirlpoolsConfigAccount(Box<OrcaWhirlpoolsConfigAccountEvent>),
 
     // Meteora Pools 事件
     MeteoraPoolsSwap(MeteoraPoolsSwapEvent),
@@ -180,11 +193,15 @@ impl DexEvent {
             DexEvent::MeteoraDammV2ClosePosition(e) => &e.metadata,
             DexEvent::MeteoraDammV2AddLiquidity(e) => &e.metadata,
             DexEvent::MeteoraDammV2RemoveLiquidity(e) => &e.metadata,
+            DexEvent::MeteoraDammV2InitializePool(e) => &e.metadata,
+            DexEvent::MeteoraDbcSwap(e) => &e.metadata,
+            DexEvent::MeteoraDbcInitializePool(e) => &e.metadata,
+            DexEvent::MeteoraDbcCurveComplete(e) => &e.metadata,
 
-            // Bonk 事件
-            DexEvent::BonkTrade(e) => &e.metadata,
-            DexEvent::BonkPoolCreate(e) => &e.metadata,
-            DexEvent::BonkMigrateAmm(e) => &e.metadata,
+            // RaydiumLaunchlab 事件
+            DexEvent::RaydiumLaunchlabTrade(e) => &e.metadata,
+            DexEvent::RaydiumLaunchlabPoolCreate(e) => &e.metadata,
+            DexEvent::RaydiumLaunchlabMigrateAmm(e) => &e.metadata,
 
             // Raydium CLMM 事件
             DexEvent::RaydiumClmmSwap(e) => &e.metadata,
@@ -213,6 +230,8 @@ impl DexEvent {
             DexEvent::RaydiumCpmmDeposit(e) => &e.metadata,
             DexEvent::RaydiumCpmmWithdraw(e) => &e.metadata,
             DexEvent::RaydiumCpmmInitialize(e) => &e.metadata,
+            DexEvent::RaydiumCpmmAmmConfigAccount(e) => &e.metadata,
+            DexEvent::RaydiumCpmmPoolStateAccount(e) => &e.metadata,
 
             // Raydium AMM V4 事件
             DexEvent::RaydiumAmmV4Swap(e) => &e.metadata,
@@ -226,6 +245,11 @@ impl DexEvent {
             DexEvent::OrcaWhirlpoolLiquidityIncreased(e) => &e.metadata,
             DexEvent::OrcaWhirlpoolLiquidityDecreased(e) => &e.metadata,
             DexEvent::OrcaWhirlpoolPoolInitialized(e) => &e.metadata,
+            DexEvent::OrcaWhirlpoolAccount(e) => &e.metadata,
+            DexEvent::OrcaPositionAccount(e) => &e.metadata,
+            DexEvent::OrcaTickArrayAccount(e) => &e.metadata,
+            DexEvent::OrcaFeeTierAccount(e) => &e.metadata,
+            DexEvent::OrcaWhirlpoolsConfigAccount(e) => &e.metadata,
 
             // Meteora Pools 事件
             DexEvent::MeteoraPoolsSwap(e) => &e.metadata,
@@ -297,9 +321,13 @@ impl DexEvent {
             DexEvent::MeteoraDammV2ClosePosition(e) => Some(&mut e.metadata),
             DexEvent::MeteoraDammV2AddLiquidity(e) => Some(&mut e.metadata),
             DexEvent::MeteoraDammV2RemoveLiquidity(e) => Some(&mut e.metadata),
-            DexEvent::BonkTrade(e) => Some(&mut e.metadata),
-            DexEvent::BonkPoolCreate(e) => Some(&mut e.metadata),
-            DexEvent::BonkMigrateAmm(e) => Some(&mut e.metadata),
+            DexEvent::MeteoraDammV2InitializePool(e) => Some(&mut e.metadata),
+            DexEvent::MeteoraDbcSwap(e) => Some(&mut e.metadata),
+            DexEvent::MeteoraDbcInitializePool(e) => Some(&mut e.metadata),
+            DexEvent::MeteoraDbcCurveComplete(e) => Some(&mut e.metadata),
+            DexEvent::RaydiumLaunchlabTrade(e) => Some(&mut e.metadata),
+            DexEvent::RaydiumLaunchlabPoolCreate(e) => Some(&mut e.metadata),
+            DexEvent::RaydiumLaunchlabMigrateAmm(e) => Some(&mut e.metadata),
             DexEvent::RaydiumClmmSwap(e) => Some(&mut e.metadata),
             DexEvent::RaydiumClmmCreatePool(e) => Some(&mut e.metadata),
             DexEvent::RaydiumClmmOpenPosition(e) => Some(&mut e.metadata),
@@ -324,6 +352,8 @@ impl DexEvent {
             DexEvent::RaydiumCpmmDeposit(e) => Some(&mut e.metadata),
             DexEvent::RaydiumCpmmWithdraw(e) => Some(&mut e.metadata),
             DexEvent::RaydiumCpmmInitialize(e) => Some(&mut e.metadata),
+            DexEvent::RaydiumCpmmAmmConfigAccount(e) => Some(&mut e.metadata),
+            DexEvent::RaydiumCpmmPoolStateAccount(e) => Some(&mut e.metadata),
             DexEvent::RaydiumAmmV4Swap(e) => Some(&mut e.metadata),
             DexEvent::RaydiumAmmV4Deposit(e) => Some(&mut e.metadata),
             DexEvent::RaydiumAmmV4Initialize2(e) => Some(&mut e.metadata),
@@ -333,6 +363,11 @@ impl DexEvent {
             DexEvent::OrcaWhirlpoolLiquidityIncreased(e) => Some(&mut e.metadata),
             DexEvent::OrcaWhirlpoolLiquidityDecreased(e) => Some(&mut e.metadata),
             DexEvent::OrcaWhirlpoolPoolInitialized(e) => Some(&mut e.metadata),
+            DexEvent::OrcaWhirlpoolAccount(e) => Some(&mut e.metadata),
+            DexEvent::OrcaPositionAccount(e) => Some(&mut e.metadata),
+            DexEvent::OrcaTickArrayAccount(e) => Some(&mut e.metadata),
+            DexEvent::OrcaFeeTierAccount(e) => Some(&mut e.metadata),
+            DexEvent::OrcaWhirlpoolsConfigAccount(e) => Some(&mut e.metadata),
             DexEvent::MeteoraPoolsSwap(e) => Some(&mut e.metadata),
             DexEvent::MeteoraPoolsAddLiquidity(e) => Some(&mut e.metadata),
             DexEvent::MeteoraPoolsRemoveLiquidity(e) => Some(&mut e.metadata),

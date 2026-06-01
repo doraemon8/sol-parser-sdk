@@ -132,10 +132,10 @@ pub fn parse_pumpfun_inner_instruction(
     metadata: EventMetadata,
     is_created_buy: bool,
 ) -> Option<DexEvent> {
-    match discriminator {
-        &discriminators::TRADE_EVENT => parse_trade_event_inner(data, metadata, is_created_buy),
-        &discriminators::CREATE_TOKEN_EVENT => parse_create_event_inner(data, metadata),
-        &discriminators::COMPLETE_PUMP_AMM_MIGRATION_EVENT => {
+    match *discriminator {
+        discriminators::TRADE_EVENT => parse_trade_event_inner(data, metadata, is_created_buy),
+        discriminators::CREATE_TOKEN_EVENT => parse_create_event_inner(data, metadata),
+        discriminators::COMPLETE_PUMP_AMM_MIGRATION_EVENT => {
             parse_migrate_event_inner(data, metadata)
         }
         _ => None,
@@ -283,7 +283,7 @@ fn parse_trade_event_inner_zero_copy(
 
         // TradeEvent 新增字段 (PUMP_CASHBACK_README): mayhem_mode, cashback_fee_basis_points, cashback
         let mayhem_mode =
-            if offset + 1 <= data.len() { read_bool_unchecked(data, offset) } else { false };
+            if offset < data.len() { read_bool_unchecked(data, offset) } else { false };
         offset += 1;
         let cashback_fee_basis_points =
             if offset + 8 <= data.len() { read_u64_unchecked(data, offset) } else { 0 };
@@ -382,24 +382,28 @@ fn parse_create_event_inner_compatible(data: &[u8], metadata: EventMetadata) -> 
 }
 
 #[inline(always)]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 fn read_u32_le(data: &[u8], offset: usize) -> Option<u32> {
     let bytes = data.get(offset..offset + 4)?;
     Some(u32::from_le_bytes(bytes.try_into().ok()?))
 }
 
 #[inline(always)]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 fn read_u64_le(data: &[u8], offset: usize) -> Option<u64> {
     let bytes = data.get(offset..offset + 8)?;
     Some(u64::from_le_bytes(bytes.try_into().ok()?))
 }
 
 #[inline(always)]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 fn read_i64_le(data: &[u8], offset: usize) -> Option<i64> {
     let bytes = data.get(offset..offset + 8)?;
     Some(i64::from_le_bytes(bytes.try_into().ok()?))
 }
 
 #[inline(always)]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 fn read_pubkey(data: &[u8], offset: usize) -> Option<solana_sdk::pubkey::Pubkey> {
     let bytes = data.get(offset..offset + 32)?;
     let mut out = [0u8; 32];
@@ -408,6 +412,7 @@ fn read_pubkey(data: &[u8], offset: usize) -> Option<solana_sdk::pubkey::Pubkey>
 }
 
 #[inline(always)]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 fn read_string(data: &[u8], offset: &mut usize) -> Option<String> {
     let len = read_u32_le(data, *offset)? as usize;
     *offset = (*offset).checked_add(4)?;
@@ -417,6 +422,7 @@ fn read_string(data: &[u8], offset: &mut usize) -> Option<String> {
     Some(std::str::from_utf8(bytes).ok()?.to_string())
 }
 
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 fn parse_create_event_fields(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     let mut offset = 0;
 
@@ -568,6 +574,7 @@ fn parse_create_event_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> O
             is_cashback_enabled,
             quote_mint,
             virtual_quote_reserves,
+            ..Default::default()
         }))
     }
 }

@@ -414,29 +414,98 @@ fn parse_initialize_pool_event(
     block_time_us: Option<i64>,
     grpc_recv_us: i64,
 ) -> Option<DexEvent> {
-    // let mut offset = 0;
+    let pool = read_pubkey(data, 0)?;
+    let metadata =
+        create_metadata_simple(signature, slot, tx_index, block_time_us, pool, grpc_recv_us);
+    parse_initialize_pool_from_data(data, metadata)
+}
 
-    // let lb_pair = read_pubkey(data, offset)?;
-    // offset += 32;
+/// 解析 Initialize Pool 事件载荷
+#[inline(always)]
+pub fn parse_initialize_pool_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
+    let mut offset = 0usize;
 
-    // let bin_step = read_u16_le(data, offset)?;
-    // offset += 2;
+    let pool = read_pubkey(data, offset)?;
+    offset += 32;
+    let token_a_mint = read_pubkey(data, offset)?;
+    offset += 32;
+    let token_b_mint = read_pubkey(data, offset)?;
+    offset += 32;
+    let creator = read_pubkey(data, offset)?;
+    offset += 32;
+    let payer = read_pubkey(data, offset)?;
+    offset += 32;
+    let alpha_vault = read_pubkey(data, offset)?;
+    offset += 32;
 
-    // let token_x = read_pubkey(data, offset)?;
-    // offset += 32;
+    offset = skip_pool_fee_parameters(data, offset)?;
+    if data.len() < offset + 109 {
+        return None;
+    }
 
-    // let token_y = read_pubkey(data, offset)?;
+    let sqrt_min_price = read_u128_le(data, offset)?;
+    offset += 16;
+    let sqrt_max_price = read_u128_le(data, offset)?;
+    offset += 16;
+    let activation_type = read_u8(data, offset)?;
+    offset += 1;
+    let collect_fee_mode = read_u8(data, offset)?;
+    offset += 1;
+    let liquidity = read_u128_le(data, offset)?;
+    offset += 16;
+    let sqrt_price = read_u128_le(data, offset)?;
+    offset += 16;
+    let activation_point = Some(read_u64_le(data, offset)?);
+    offset += 8;
+    let token_a_flag = read_u8(data, offset)?;
+    offset += 1;
+    let token_b_flag = read_u8(data, offset)?;
+    offset += 1;
+    let token_a_amount = read_u64_le(data, offset)?;
+    offset += 8;
+    let token_b_amount = read_u64_le(data, offset)?;
+    offset += 8;
+    let total_amount_a = read_u64_le(data, offset)?;
+    offset += 8;
+    let total_amount_b = read_u64_le(data, offset)?;
+    offset += 8;
+    let pool_type = read_u8(data, offset)?;
 
-    // let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, lb_pair, grpc_recv_us);
+    Some(DexEvent::MeteoraDammV2InitializePool(MeteoraDammV2InitializePoolEvent {
+        metadata,
+        pool,
+        token_a_mint,
+        token_b_mint,
+        creator,
+        payer,
+        alpha_vault,
+        sqrt_min_price,
+        sqrt_max_price,
+        activation_type,
+        collect_fee_mode,
+        liquidity,
+        sqrt_price,
+        activation_point,
+        token_a_flag,
+        token_b_flag,
+        token_a_amount,
+        token_b_amount,
+        total_amount_a,
+        total_amount_b,
+        pool_type,
+        ..Default::default()
+    }))
+}
 
-    // Some(DexEvent::MeteoraDammV2InitializePool(MeteoraDammV2InitializePoolEvent {
-    //     metadata,
-    //     lb_pair,
-    //     bin_step,
-    //     token_x,
-    //     token_y,
-    // }))
-    None
+#[inline(always)]
+fn skip_pool_fee_parameters(data: &[u8], offset: usize) -> Option<usize> {
+    let tag_offset = offset + 30;
+    let tag = *data.get(tag_offset)?;
+    match tag {
+        0 => Some(tag_offset + 1),
+        1 => data.get(tag_offset + 1..tag_offset + 33).map(|_| tag_offset + 33),
+        _ => None,
+    }
 }
 
 /// 解析 Create Position 事件

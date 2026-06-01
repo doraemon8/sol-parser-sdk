@@ -278,9 +278,8 @@ fn parse_buy_event_optimized(
     block_time_us: Option<i64>,
     grpc_recv_us: i64,
 ) -> Option<DexEvent> {
-    // Updated size check for new fields: min_base_amount_out (u64) + ix_name (String, variable length)
-    // Minimum size: 14个u64 + 7个Pubkey + 1个bool + 5个u64 (new fields) + 4 bytes (min string length)
-    const MIN_REQUIRED_LEN: usize = 14 * 8 + 7 * 32 + 1 + 5 * 8 + 4;
+    // Minimum size through min_base_amount_out plus an empty ix_name string prefix.
+    const MIN_REQUIRED_LEN: usize = 16 * 8 + 7 * 32 + 1 + 5 * 8 + 4;
     if data.len() < MIN_REQUIRED_LEN {
         return None;
     }
@@ -715,8 +714,8 @@ pub fn is_event_type(log: &str, discriminator: u64) -> bool {
 /// Parse PumpSwap Buy event from pre-decoded data
 #[inline(always)]
 pub fn parse_buy_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    // Updated size check for new fields
-    const MIN_REQUIRED_LEN: usize = 14 * 8 + 7 * 32 + 1 + 5 * 8 + 4;
+    // Minimum size through min_base_amount_out plus an empty ix_name string prefix.
+    const MIN_REQUIRED_LEN: usize = 16 * 8 + 7 * 32 + 1 + 5 * 8 + 4;
     if data.len() < MIN_REQUIRED_LEN {
         return None;
     }
@@ -1184,5 +1183,11 @@ mod tests {
         assert_eq!(event.cashback, 0);
         assert_eq!(event.coin_creator_fee_basis_points, 155);
         assert_eq!(event.coin_creator_fee, 166);
+    }
+
+    #[test]
+    fn parse_buy_from_data_rejects_truncated_min_base_payload() {
+        assert!(parse_buy_from_data(&vec![0u8; 396], metadata()).is_none());
+        assert!(parse_buy_from_data(&vec![0u8; 397], metadata()).is_some());
     }
 }

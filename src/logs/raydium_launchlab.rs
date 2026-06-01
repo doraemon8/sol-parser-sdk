@@ -1,13 +1,13 @@
-//! Raydium Launchpad 日志解析器
+//! Raydium LaunchLab 日志解析器
 //!
-//! 事件类型名称沿用历史的 `Bonk*`，底层按 `idl/raydium_launchpad.json`
-//! 的真实 event discriminator 和 Borsh 布局解析。
+//! 底层按 `idls/raydium_launchpad.json` 的真实 event discriminator 和 Borsh
+//! 布局解析，对外事件名统一为 `RaydiumLaunchlab*`。
 
 use super::utils::*;
 use crate::core::events::*;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
-/// Raydium Launchpad event discriminators from `idl/raydium_launchpad.json`.
+/// Raydium LaunchLab event discriminators from `idls/raydium_launchpad.json`.
 pub mod discriminators {
     pub const CLAIM_VESTED: [u8; 8] = [21, 194, 114, 87, 120, 211, 226, 32];
     pub const CREATE_VESTING: [u8; 8] = [150, 152, 11, 179, 52, 210, 191, 125];
@@ -15,16 +15,16 @@ pub mod discriminators {
     pub const TRADE: [u8; 8] = [189, 219, 127, 211, 78, 230, 97, 238];
 }
 
-/// Raydium Launchpad 程序 ID
+/// Raydium LaunchLab 程序 ID
 pub const PROGRAM_ID: &str = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
-/// 检查日志是否来自 Raydium Launchpad 程序
-pub fn is_raydium_launchpad_log(log: &str) -> bool {
+/// 检查日志是否来自 Raydium LaunchLab 程序
+pub fn is_raydium_launchlab_log(log: &str) -> bool {
     log.contains(&format!("Program {} invoke", PROGRAM_ID))
         || log.contains(&format!("Program {} success", PROGRAM_ID))
 }
 
-/// 主要的 Raydium Launchpad 日志解析函数
+/// 主要的 Raydium LaunchLab 日志解析函数
 pub fn parse_log(
     log: &str,
     signature: Signature,
@@ -56,7 +56,7 @@ pub fn parse_log(
     }
 }
 
-/// Parse Raydium Launchpad TradeEvent from pre-decoded event data.
+/// Parse Raydium LaunchLab TradeEvent from pre-decoded event data.
 #[inline]
 pub fn parse_trade_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     let pool_state = read_pubkey(data, 0)?;
@@ -66,7 +66,7 @@ pub fn parse_trade_from_data(data: &[u8], metadata: EventMetadata) -> Option<Dex
     let exact_in = read_bool(data, 138)?;
     let is_buy = trade_direction == 0;
 
-    Some(DexEvent::BonkTrade(BonkTradeEvent {
+    Some(DexEvent::RaydiumLaunchlabTrade(RaydiumLaunchlabTradeEvent {
         metadata,
         pool_state,
         user: Pubkey::default(),
@@ -78,7 +78,7 @@ pub fn parse_trade_from_data(data: &[u8], metadata: EventMetadata) -> Option<Dex
     }))
 }
 
-/// Parse Raydium Launchpad PoolCreateEvent from pre-decoded event data.
+/// Parse Raydium LaunchLab PoolCreateEvent from pre-decoded event data.
 #[inline]
 pub fn parse_pool_create_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     let mut offset = 0usize;
@@ -90,7 +90,7 @@ pub fn parse_pool_create_from_data(data: &[u8], metadata: EventMetadata) -> Opti
     offset += 32;
     let base_mint_param = parse_mint_params(data, &mut offset)?;
 
-    Some(DexEvent::BonkPoolCreate(BonkPoolCreateEvent {
+    Some(DexEvent::RaydiumLaunchlabPoolCreate(RaydiumLaunchlabPoolCreateEvent {
         metadata,
         base_mint_param,
         pool_state,

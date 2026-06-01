@@ -465,6 +465,18 @@ pub fn fill_accounts_with_owned_keys(
                 }
             );
         }
+        DexEvent::MeteoraDammV2InitializePool(e) => {
+            fill_event_accounts!(
+                e,
+                meta,
+                transaction,
+                program_invokes,
+                &METEORA_DAMM_V2_PROGRAM,
+                |get: &AccountGetter<'_>| {
+                    account_fillers::meteora::fill_damm_v2_initialize_pool_accounts(e, get);
+                }
+            );
+        }
 
         // Meteora Pools
         DexEvent::MeteoraPoolsSwap(e) => {
@@ -542,28 +554,28 @@ pub fn fill_accounts_with_owned_keys(
             );
         }
 
-        // Bonk
-        DexEvent::BonkTrade(e) => {
+        // RaydiumLaunchlab
+        DexEvent::RaydiumLaunchlabTrade(e) => {
             fill_event_accounts!(
                 e,
                 meta,
                 transaction,
                 program_invokes,
-                &BONK_PROGRAM,
+                &RAYDIUM_LAUNCHLAB_PROGRAM,
                 |get: &AccountGetter<'_>| {
-                    account_fillers::bonk::fill_trade_accounts(e, get);
+                    account_fillers::raydium_launchlab::fill_trade_accounts(e, get);
                 }
             );
         }
-        DexEvent::BonkPoolCreate(e) => {
+        DexEvent::RaydiumLaunchlabPoolCreate(e) => {
             fill_event_accounts!(
                 e,
                 meta,
                 transaction,
                 program_invokes,
-                &BONK_PROGRAM,
+                &RAYDIUM_LAUNCHLAB_PROGRAM,
                 |get: &AccountGetter<'_>| {
-                    account_fillers::bonk::fill_pool_create_accounts(e, get);
+                    account_fillers::raydium_launchlab::fill_pool_create_accounts(e, get);
                 }
             );
         }

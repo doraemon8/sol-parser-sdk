@@ -15,20 +15,20 @@ pub mod discriminators {
 
 #[inline]
 pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    match disc {
-        &discriminators::SWAP_BASE_IN => {
+    match *disc {
+        discriminators::SWAP_BASE_IN => {
             crate::logs::raydium_cpmm::parse_swap_base_in_from_data(data, metadata)
         }
-        &discriminators::SWAP_BASE_OUT => {
+        discriminators::SWAP_BASE_OUT => {
             crate::logs::raydium_cpmm::parse_swap_base_out_from_data(data, metadata)
         }
-        &discriminators::CREATE_POOL => {
+        discriminators::CREATE_POOL => {
             crate::logs::raydium_cpmm::parse_create_pool_from_data(data, metadata)
         }
-        &discriminators::DEPOSIT => {
+        discriminators::DEPOSIT => {
             crate::logs::raydium_cpmm::parse_deposit_from_data(data, metadata)
         }
-        &discriminators::WITHDRAW => {
+        discriminators::WITHDRAW => {
             crate::logs::raydium_cpmm::parse_withdraw_from_data(data, metadata)
         }
         _ => None,

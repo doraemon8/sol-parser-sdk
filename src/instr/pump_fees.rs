@@ -102,7 +102,7 @@ pub fn parse_instruction(
     }
 
     if disc == INITIALIZE_FEE_CONFIG_IX {
-        let admin = *accounts.get(0)?;
+        let admin = *accounts.first()?;
         let fee_config = *accounts.get(1)?;
         return Some(DexEvent::PumpFeesInitializeFeeConfig(PumpFeesInitializeFeeConfigEvent {
             metadata: md,
@@ -130,7 +130,7 @@ pub fn parse_instruction(
     }
 
     if disc == REVOKE_FEE_SHARING_IX {
-        let admin = *accounts.get(0)?;
+        let admin = *accounts.first()?;
         let mint = *accounts.get(2)?;
         let sharing_config = *accounts.get(3)?;
         return Some(DexEvent::PumpFeesRevokeFeeSharingAuthority(
@@ -145,7 +145,7 @@ pub fn parse_instruction(
     }
 
     if disc == TRANSFER_FEE_SHARING_IX {
-        let old_admin = *accounts.get(0)?;
+        let old_admin = *accounts.first()?;
         let mint = *accounts.get(2)?;
         let sharing_config = *accounts.get(3)?;
         let new_admin = *accounts.get(4)?;
@@ -162,7 +162,7 @@ pub fn parse_instruction(
     }
 
     if disc == UPDATE_ADMIN_IX {
-        let old_admin = *accounts.get(0)?;
+        let old_admin = *accounts.first()?;
         let new_admin = *accounts.get(2)?;
         return Some(DexEvent::PumpFeesUpdateAdmin(PumpFeesUpdateAdminEvent {
             metadata: md,
@@ -173,7 +173,7 @@ pub fn parse_instruction(
     }
 
     if disc == UPDATE_FEE_CONFIG_IX {
-        let fee_config = *accounts.get(0)?;
+        let fee_config = *accounts.first()?;
         let admin = *accounts.get(1)?;
         if instruction_data.len() < 8 {
             return None;
@@ -195,7 +195,7 @@ pub fn parse_instruction(
     }
 
     if disc == UPSERT_FEE_TIERS_IX {
-        let fee_config = *accounts.get(0)?;
+        let fee_config = *accounts.first()?;
         let admin = *accounts.get(1)?;
         if instruction_data.len() < 8 {
             return None;

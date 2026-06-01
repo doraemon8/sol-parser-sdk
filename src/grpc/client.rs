@@ -7,7 +7,9 @@
 //! - Ordered: 1-50ms 完全有序
 
 use super::buffers::{MicroBatchBuffer, SlotBuffer};
-use super::subscribe_builder::build_subscribe_request;
+use super::subscribe_builder::{
+    build_subscribe_request, build_subscribe_request_with_event_filter,
+};
 use super::transaction_meta::try_yellowstone_signature;
 use super::types::*;
 use crate::core::{now_micros, EventMetadata}; // 导入高性能时钟
@@ -145,7 +147,12 @@ impl YellowstoneGrpc {
         }
 
         let mut client = builder.connect().await.map_err(|e| e.to_string())?;
-        let request = build_subscribe_request(tx_filters, acc_filters);
+        let request = build_subscribe_request_with_event_filter(
+            tx_filters,
+            acc_filters,
+            event_filter.as_ref(),
+            CommitmentLevel::Processed,
+        );
 
         let (subscribe_tx, mut stream) =
             client.subscribe_with_request(Some(request)).await.map_err(|e| e.to_string())?;
@@ -341,6 +348,9 @@ impl YellowstoneGrpc {
             subscribe_update::UpdateOneof::Account(acc) => {
                 Self::handle_account(acc, filter, queue, grpc_recv_us, block_time_us);
             }
+            subscribe_update::UpdateOneof::BlockMeta(block_meta) => {
+                Self::handle_block_meta(block_meta, filter, queue, grpc_recv_us, block_time_us);
+            }
             _ => {}
         }
     }
@@ -437,6 +447,35 @@ impl YellowstoneGrpc {
             let _ = queue.push(e);
         }
     }
+
+    #[inline]
+    fn handle_block_meta(
+        block_meta: SubscribeUpdateBlockMeta,
+        filter: &Option<EventTypeFilter>,
+        queue: &Arc<ArrayQueue<DexEvent>>,
+        grpc_us: i64,
+        fallback_block_us: i64,
+    ) {
+        let block_time_us = block_meta
+            .block_time
+            .as_ref()
+            .map(|t| t.timestamp.saturating_mul(1_000_000))
+            .unwrap_or(fallback_block_us);
+        let event = DexEvent::BlockMeta(crate::core::events::BlockMetaEvent {
+            metadata: EventMetadata {
+                signature: Default::default(),
+                slot: block_meta.slot,
+                tx_index: 0,
+                block_time_us,
+                grpc_recv_us: grpc_us,
+                recent_blockhash: (!block_meta.blockhash.is_empty())
+                    .then_some(block_meta.blockhash),
+            },
+        });
+        if filter.as_ref().map(|f| f.should_include_dex_event(&event)).unwrap_or(true) {
+            let _ = queue.push(event);
+        }
+    }
 }
 
 // ==================== 辅助函数 ====================
@@ -495,7 +534,13 @@ fn parse_transaction_core(
     let instr_events =
         parse_instructions(meta, &info.transaction, sig, slot, idx, block_us, grpc_us, filter);
 
-    crate::grpc::log_instr_dedup::dedupe_log_instruction_events(log_events, instr_events)
+    let events =
+        crate::grpc::log_instr_dedup::dedupe_log_instruction_events(log_events, instr_events);
+    if let Some(filter) = filter {
+        events.into_iter().map(|e| filter.normalize_dex_event(e)).collect()
+    } else {
+        events
+    }
 }
 
 #[inline(always)]

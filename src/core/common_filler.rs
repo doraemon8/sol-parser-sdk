@@ -63,5 +63,5 @@ pub fn get_instruction_data<'a>(
     } else {
         transaction.as_ref()?.message.as_ref()?.instructions.get(index.0 as usize)?.data.as_slice()
     };
-    return Some(data);
+    Some(data)
 }

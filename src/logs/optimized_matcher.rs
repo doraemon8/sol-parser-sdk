@@ -25,7 +25,7 @@ static RAYDIUM_CLMM_FINDER: Lazy<memmem::Finder> =
     Lazy::new(|| memmem::Finder::new(b"CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"));
 static RAYDIUM_CPMM_FINDER: Lazy<memmem::Finder> =
     Lazy::new(|| memmem::Finder::new(b"CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"));
-static BONK_FINDER: Lazy<memmem::Finder> =
+static RAYDIUM_LAUNCHLAB_FINDER: Lazy<memmem::Finder> =
     Lazy::new(|| memmem::Finder::new(b"LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj"));
 static PROGRAM_FINDER: Lazy<memmem::Finder> = Lazy::new(|| memmem::Finder::new(b"Program"));
 static PROGRAM_DATA_FINDER: Lazy<memmem::Finder> =
@@ -45,9 +45,11 @@ pub mod program_id_strings {
     pub const PUMPFUN_SUCCESS: &str = "Program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P success";
     pub const PUMPFUN_ID: &str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 
-    pub const BONK_INVOKE: &str = "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj invoke";
-    pub const BONK_SUCCESS: &str = "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj success";
-    pub const BONK_ID: &str = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
+    pub const RAYDIUM_LAUNCHLAB_INVOKE: &str =
+        "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj invoke";
+    pub const RAYDIUM_LAUNCHLAB_SUCCESS: &str =
+        "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj success";
+    pub const RAYDIUM_LAUNCHLAB_ID: &str = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
     pub const RAYDIUM_CLMM_INVOKE: &str =
         "Program CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK invoke";
@@ -75,7 +77,7 @@ pub mod program_id_strings {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum LogType {
     PumpFun,
-    RaydiumLaunchpad,
+    RaydiumLaunchlab,
     PumpAmm,
     RaydiumClmm,
     RaydiumCpmm,
@@ -121,9 +123,9 @@ pub fn detect_log_type(log: &str) -> LogType {
         return LogType::RaydiumCpmm;
     }
 
-    // Raydium Launchpad (Bonk)
-    if BONK_FINDER.find(log_bytes).is_some() {
-        return LogType::RaydiumLaunchpad;
+    // Raydium LaunchLab (RaydiumLaunchlab)
+    if RAYDIUM_LAUNCHLAB_FINDER.find(log_bytes).is_some() {
+        return LogType::RaydiumLaunchlab;
     }
 
     // Orca Whirlpool
@@ -176,12 +178,12 @@ mod discriminators {
     pub const PUMPFUN_MIGRATE: u64 = u64::from_le_bytes([189, 233, 93, 185, 92, 148, 234, 148]);
     pub const PUMPFUN_MIGRATE_BONDING_CURVE_CREATOR: u64 =
         u64::from_le_bytes([155, 167, 104, 220, 213, 108, 243, 3]);
-    // Raydium Launchpad event discriminators. `TRADE` intentionally equals
+    // Raydium LaunchLab event discriminators. `TRADE` intentionally equals
     // PumpFun's TradeEvent discriminator, so gRPC must route logs with program
     // context instead of discriminator alone.
-    pub const RAYDIUM_LAUNCHPAD_POOL_CREATE: u64 =
+    pub const RAYDIUM_LAUNCHLAB_POOL_CREATE: u64 =
         u64::from_le_bytes([151, 215, 226, 9, 118, 161, 115, 174]);
-    pub const RAYDIUM_LAUNCHPAD_TRADE: u64 =
+    pub const RAYDIUM_LAUNCHLAB_TRADE: u64 =
         u64::from_le_bytes([189, 219, 127, 211, 78, 230, 97, 238]);
     // Pump fees (`idls/pump_fees.json` event discriminators)
     pub const PUMP_FEES_CREATE_FEE_SHARING_CONFIG: u64 =
@@ -299,6 +301,14 @@ mod discriminators {
     pub const METEORA_DAMM_CLOSE_POSITION: u64 =
         u64::from_le_bytes([20, 145, 144, 68, 143, 142, 214, 178]);
 
+    // Meteora DBC discriminators. Some values intentionally overlap DAMM V2,
+    // so they must be routed with program context.
+    pub const METEORA_DBC_SWAP: u64 = u64::from_le_bytes([27, 60, 21, 213, 138, 170, 187, 147]);
+    pub const METEORA_DBC_INITIALIZE_POOL: u64 =
+        u64::from_le_bytes([228, 50, 246, 85, 203, 66, 134, 37]);
+    pub const METEORA_DBC_CURVE_COMPLETE: u64 =
+        u64::from_le_bytes([229, 231, 86, 84, 156, 134, 75, 24]);
+
     // Meteora DLMM discriminators
     pub const METEORA_DLMM_SWAP: u64 = u64::from_le_bytes([143, 190, 90, 218, 196, 30, 51, 222]);
     pub const METEORA_DLMM_ADD_LIQUIDITY: u64 =
@@ -413,7 +423,7 @@ fn filter_includes_known_program(program_id: &Pubkey, filter: &EventTypeFilter) 
         program_ids::PUMPFUN_PROGRAM_ID => filter.includes_pumpfun(),
         program_ids::PUMP_FEES_PROGRAM_ID => filter.includes_pump_fees(),
         program_ids::PUMPSWAP_PROGRAM_ID => filter.includes_pumpswap(),
-        program_ids::BONK_PROGRAM_ID => filter.includes_raydium_launchpad(),
+        program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID => filter.includes_raydium_launchlab(),
         program_ids::RAYDIUM_CLMM_PROGRAM_ID => filter.includes_raydium_clmm(),
         program_ids::RAYDIUM_CPMM_PROGRAM_ID => filter.includes_raydium_cpmm(),
         program_ids::RAYDIUM_AMM_V4_PROGRAM_ID => filter.includes_raydium_amm_v4(),
@@ -421,6 +431,7 @@ fn filter_includes_known_program(program_id: &Pubkey, filter: &EventTypeFilter) 
         program_ids::METEORA_POOLS_PROGRAM_ID => filter.includes_meteora_pools(),
         program_ids::METEORA_DAMM_V2_PROGRAM_ID => filter.includes_meteora_damm_v2(),
         program_ids::METEORA_DLMM_PROGRAM_ID => filter.includes_meteora_dlmm(),
+        program_ids::METEORA_DBC_PROGRAM_ID => filter.includes_meteora_dbc(),
         _ => true,
     }
 }
@@ -430,7 +441,7 @@ fn filter_wants_supported_logs(filter: &EventTypeFilter) -> bool {
     filter.includes_pumpfun()
         || filter.includes_pump_fees()
         || filter.includes_pumpswap()
-        || filter.includes_raydium_launchpad()
+        || filter.includes_raydium_launchlab()
         || filter.includes_raydium_clmm()
         || filter.includes_raydium_cpmm()
         || filter.includes_raydium_amm_v4()
@@ -438,15 +449,16 @@ fn filter_wants_supported_logs(filter: &EventTypeFilter) -> bool {
         || filter.includes_meteora_pools()
         || filter.includes_meteora_damm_v2()
         || filter.includes_meteora_dlmm()
+        || filter.includes_meteora_dbc()
 }
 
 #[inline(always)]
 fn unscoped_filter_allows_discriminator(discriminator: u64, filter: &EventTypeFilter) -> bool {
     match discriminator {
-        // Shared by Pump.fun trade and Raydium Launchpad/Bonk trade.
+        // Shared by Pump.fun trade and Raydium LaunchLab/RaydiumLaunchlab trade.
         discriminators::PUMPFUN_TRADE => {
             filter.should_include(EventType::PumpFunTrade)
-                || filter.should_include(EventType::BonkTrade)
+                || filter.should_include(EventType::RaydiumLaunchlabTrade)
         }
         // Shared by Raydium CPMM swap-base-in and Meteora DLMM swap.
         discriminators::RAYDIUM_CPMM_SWAP_BASE_IN => {
@@ -812,6 +824,9 @@ fn parse_log_optimized_inner(
         discriminators::METEORA_DAMM_REMOVE_LIQUIDITY => {
             crate::logs::meteora_damm::parse_remove_liquidity_from_data(data, metadata)
         }
+        discriminators::METEORA_DAMM_INITIALIZE_POOL => {
+            crate::logs::meteora_damm::parse_initialize_pool_from_data(data, metadata)
+        }
         discriminators::METEORA_DAMM_CREATE_POSITION => {
             crate::logs::meteora_damm::parse_create_position_from_data(data, metadata)
         }
@@ -887,9 +902,11 @@ fn program_scoped_discriminator_to_event_type(
             discriminators::PUMPSWAP_REMOVE_LIQUIDITY => Some(EventType::PumpSwapLiquidityRemoved),
             _ => None,
         },
-        program_ids::BONK_PROGRAM_ID => match discriminator {
-            discriminators::RAYDIUM_LAUNCHPAD_TRADE => Some(EventType::BonkTrade),
-            discriminators::RAYDIUM_LAUNCHPAD_POOL_CREATE => Some(EventType::BonkPoolCreate),
+        program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID => match discriminator {
+            discriminators::RAYDIUM_LAUNCHLAB_TRADE => Some(EventType::RaydiumLaunchlabTrade),
+            discriminators::RAYDIUM_LAUNCHLAB_POOL_CREATE => {
+                Some(EventType::RaydiumLaunchlabPoolCreate)
+            }
             _ => None,
         },
         program_ids::RAYDIUM_CLMM_PROGRAM_ID => match discriminator {
@@ -983,12 +1000,23 @@ fn program_scoped_discriminator_to_event_type(
             discriminators::METEORA_DAMM_REMOVE_LIQUIDITY => {
                 Some(EventType::MeteoraDammV2RemoveLiquidity)
             }
+            discriminators::METEORA_DAMM_INITIALIZE_POOL => {
+                Some(EventType::MeteoraDammV2InitializePool)
+            }
             discriminators::METEORA_DAMM_CREATE_POSITION => {
                 Some(EventType::MeteoraDammV2CreatePosition)
             }
             discriminators::METEORA_DAMM_CLOSE_POSITION => {
                 Some(EventType::MeteoraDammV2ClosePosition)
             }
+            _ => None,
+        },
+        program_ids::METEORA_DBC_PROGRAM_ID => match discriminator {
+            discriminators::METEORA_DBC_SWAP => Some(EventType::MeteoraDbcSwap),
+            discriminators::METEORA_DBC_INITIALIZE_POOL => {
+                Some(EventType::MeteoraDbcInitializePool)
+            }
+            discriminators::METEORA_DBC_CURVE_COMPLETE => Some(EventType::MeteoraDbcCurveComplete),
             _ => None,
         },
         program_ids::METEORA_DLMM_PROGRAM_ID => match discriminator {
@@ -1134,18 +1162,18 @@ fn parse_program_scoped_event(
                 _ => None,
             }
         }
-        program_ids::BONK_PROGRAM_ID => {
+        program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID => {
             if let Some(filter) = event_type_filter {
-                if !filter.includes_raydium_launchpad() {
+                if !filter.includes_raydium_launchlab() {
                     return None;
                 }
             }
             match discriminator {
-                discriminators::RAYDIUM_LAUNCHPAD_TRADE => {
-                    crate::logs::raydium_launchpad::parse_trade_from_data(data, metadata)
+                discriminators::RAYDIUM_LAUNCHLAB_TRADE => {
+                    crate::logs::raydium_launchlab::parse_trade_from_data(data, metadata)
                 }
-                discriminators::RAYDIUM_LAUNCHPAD_POOL_CREATE => {
-                    crate::logs::raydium_launchpad::parse_pool_create_from_data(data, metadata)
+                discriminators::RAYDIUM_LAUNCHLAB_POOL_CREATE => {
+                    crate::logs::raydium_launchlab::parse_pool_create_from_data(data, metadata)
                 }
                 _ => None,
             }
@@ -1329,11 +1357,33 @@ fn parse_program_scoped_event(
                 discriminators::METEORA_DAMM_REMOVE_LIQUIDITY => {
                     crate::logs::meteora_damm::parse_remove_liquidity_from_data(data, metadata)
                 }
+                discriminators::METEORA_DAMM_INITIALIZE_POOL => {
+                    crate::logs::meteora_damm::parse_initialize_pool_from_data(data, metadata)
+                }
                 discriminators::METEORA_DAMM_CREATE_POSITION => {
                     crate::logs::meteora_damm::parse_create_position_from_data(data, metadata)
                 }
                 discriminators::METEORA_DAMM_CLOSE_POSITION => {
                     crate::logs::meteora_damm::parse_close_position_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::METEORA_DBC_PROGRAM_ID => {
+            if let Some(filter) = event_type_filter {
+                if !filter.includes_meteora_dbc() {
+                    return None;
+                }
+            }
+            match discriminator {
+                discriminators::METEORA_DBC_SWAP => {
+                    crate::logs::meteora_dbc::parse_swap_from_data(data, metadata)
+                }
+                discriminators::METEORA_DBC_INITIALIZE_POOL => {
+                    crate::logs::meteora_dbc::parse_initialize_pool_from_data(data, metadata)
+                }
+                discriminators::METEORA_DBC_CURVE_COMPLETE => {
+                    crate::logs::meteora_dbc::parse_curve_complete_from_data(data, metadata)
                 }
                 _ => None,
             }
@@ -1457,7 +1507,9 @@ fn discriminator_to_event_type(discriminator: u64) -> Option<EventType> {
         discriminators::PUMPSWAP_CREATE_POOL => Some(EventType::PumpSwapCreatePool),
         discriminators::PUMPSWAP_ADD_LIQUIDITY => Some(EventType::PumpSwapLiquidityAdded),
         discriminators::PUMPSWAP_REMOVE_LIQUIDITY => Some(EventType::PumpSwapLiquidityRemoved),
-        discriminators::RAYDIUM_LAUNCHPAD_POOL_CREATE => Some(EventType::BonkPoolCreate),
+        discriminators::RAYDIUM_LAUNCHLAB_POOL_CREATE => {
+            Some(EventType::RaydiumLaunchlabPoolCreate)
+        }
         discriminators::RAYDIUM_CLMM_SWAP => Some(EventType::RaydiumClmmSwap),
         discriminators::RAYDIUM_CLMM_INCREASE_LIQUIDITY => {
             Some(EventType::RaydiumClmmIncreaseLiquidity)
@@ -1529,6 +1581,9 @@ fn discriminator_to_event_type(discriminator: u64) -> Option<EventType> {
         discriminators::METEORA_DAMM_ADD_LIQUIDITY => Some(EventType::MeteoraDammV2AddLiquidity),
         discriminators::METEORA_DAMM_REMOVE_LIQUIDITY => {
             Some(EventType::MeteoraDammV2RemoveLiquidity)
+        }
+        discriminators::METEORA_DAMM_INITIALIZE_POOL => {
+            Some(EventType::MeteoraDammV2InitializePool)
         }
         discriminators::METEORA_DAMM_CREATE_POSITION => {
             Some(EventType::MeteoraDammV2CreatePosition)
@@ -1614,10 +1669,10 @@ mod tests {
     use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
     #[test]
-    fn program_scoped_launchpad_trade_is_not_parsed_as_pumpfun() {
+    fn program_scoped_launchlab_trade_is_not_parsed_as_pumpfun() {
         let pool = Pubkey::new_unique();
         let mut raw = Vec::new();
-        raw.extend_from_slice(&discriminators::RAYDIUM_LAUNCHPAD_TRADE.to_le_bytes());
+        raw.extend_from_slice(&discriminators::RAYDIUM_LAUNCHLAB_TRADE.to_le_bytes());
         raw.extend_from_slice(pool.as_ref());
         for value in 0u64..13 {
             raw.extend_from_slice(&(100 + value).to_le_bytes());
@@ -1627,7 +1682,7 @@ mod tests {
         raw.push(1); // exact_in
 
         let log = format!("Program data: {}", STANDARD.encode(raw));
-        let filter = EventTypeFilter::include_only(vec![EventType::BonkTrade]);
+        let filter = EventTypeFilter::include_only(vec![EventType::RaydiumLaunchlabTrade]);
         let event = parse_log_optimized_with_program_id(
             &log,
             Signature::default(),
@@ -1638,19 +1693,19 @@ mod tests {
             Some(&filter),
             false,
             None,
-            Some(&program_ids::BONK_PROGRAM_ID),
+            Some(&program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID),
         )
-        .expect("launchpad trade should parse");
+        .expect("launchlab trade should parse");
 
         match event {
-            DexEvent::BonkTrade(trade) => {
+            DexEvent::RaydiumLaunchlabTrade(trade) => {
                 assert_eq!(trade.pool_state, pool);
                 assert_eq!(trade.amount_in, 107);
                 assert_eq!(trade.amount_out, 108);
                 assert!(!trade.is_buy);
                 assert!(trade.exact_in);
             }
-            other => panic!("expected BonkTrade, got {other:?}"),
+            other => panic!("expected RaydiumLaunchlabTrade, got {other:?}"),
         }
     }
 
@@ -1758,16 +1813,34 @@ mod tests {
             Some(&dlmm_filter),
         ));
 
-        let bonk_filter = EventTypeFilter::include_only(vec![EventType::BonkTrade]);
+        let raydium_launchlab_filter =
+            EventTypeFilter::include_only(vec![EventType::RaydiumLaunchlabTrade]);
         assert!(filter_allows_discriminator(
-            Some(&program_ids::BONK_PROGRAM_ID),
-            discriminators::RAYDIUM_LAUNCHPAD_TRADE,
-            Some(&bonk_filter),
+            Some(&program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID),
+            discriminators::RAYDIUM_LAUNCHLAB_TRADE,
+            Some(&raydium_launchlab_filter),
         ));
         assert!(!filter_allows_discriminator(
             Some(&program_ids::PUMPFUN_PROGRAM_ID),
             discriminators::PUMPFUN_TRADE,
-            Some(&bonk_filter),
+            Some(&raydium_launchlab_filter),
+        ));
+
+        let dbc_filter = EventTypeFilter::include_only(vec![EventType::MeteoraDbcSwap]);
+        assert!(filter_allows_discriminator(
+            Some(&program_ids::METEORA_DBC_PROGRAM_ID),
+            discriminators::METEORA_DBC_SWAP,
+            Some(&dbc_filter),
+        ));
+        assert!(!filter_allows_discriminator(
+            Some(&program_ids::METEORA_DAMM_V2_PROGRAM_ID),
+            discriminators::METEORA_DAMM_SWAP,
+            Some(&dbc_filter),
+        ));
+        assert!(!filter_allows_discriminator(
+            Some(&program_ids::METEORA_DBC_PROGRAM_ID),
+            discriminators::METEORA_DLMM_CLOSE_POSITION,
+            Some(&raydium_launchlab_filter),
         ));
     }
 
@@ -1816,7 +1889,7 @@ mod tests {
     }
 
     #[test]
-    fn unscoped_pumpfun_launchpad_collision_does_not_emit_wrong_protocol_event() {
+    fn unscoped_pumpfun_launchlab_collision_does_not_emit_wrong_protocol_event() {
         let mut raw = Vec::new();
         raw.extend_from_slice(&discriminators::PUMPFUN_TRADE.to_le_bytes());
         raw.extend_from_slice(Pubkey::new_unique().as_ref()); // mint
@@ -1836,7 +1909,7 @@ mod tests {
         raw.extend_from_slice(&13u64.to_le_bytes()); // creator_fee
 
         let log = format!("Program data: {}", STANDARD.encode(raw));
-        let filter = EventTypeFilter::include_only(vec![EventType::BonkTrade]);
+        let filter = EventTypeFilter::include_only(vec![EventType::RaydiumLaunchlabTrade]);
         assert!(parse_log_optimized(
             &log,
             Signature::default(),
@@ -1912,6 +1985,69 @@ mod tests {
             }
             other => panic!("expected MeteoraDammV2AddLiquidity, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn program_scoped_dbc_swap_parses_and_does_not_emit_as_damm() {
+        let pool = Pubkey::new_unique();
+        let config = Pubkey::new_unique();
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&discriminators::METEORA_DBC_SWAP.to_le_bytes());
+        raw.extend_from_slice(pool.as_ref());
+        raw.extend_from_slice(config.as_ref());
+        raw.push(1);
+        raw.push(0);
+        raw.extend_from_slice(&100u64.to_le_bytes());
+        raw.extend_from_slice(&90u64.to_le_bytes());
+        raw.extend_from_slice(&100u64.to_le_bytes());
+        raw.extend_from_slice(&95u64.to_le_bytes());
+        raw.extend_from_slice(&(1u128 << 64).to_le_bytes());
+        raw.extend_from_slice(&2u64.to_le_bytes());
+        raw.extend_from_slice(&3u64.to_le_bytes());
+        raw.extend_from_slice(&0u64.to_le_bytes());
+        raw.extend_from_slice(&100u64.to_le_bytes());
+        raw.extend_from_slice(&1_777_920_719u64.to_le_bytes());
+
+        let log = format!("Program data: {}", STANDARD.encode(raw));
+        let dbc_filter = EventTypeFilter::include_only(vec![EventType::MeteoraDbcSwap]);
+        let event = parse_log_optimized_with_program_id(
+            &log,
+            Signature::default(),
+            1,
+            2,
+            Some(3),
+            4,
+            Some(&dbc_filter),
+            false,
+            None,
+            Some(&program_ids::METEORA_DBC_PROGRAM_ID),
+        )
+        .expect("DBC swap should parse with DBC program context");
+
+        match event {
+            DexEvent::MeteoraDbcSwap(event) => {
+                assert_eq!(event.pool, pool);
+                assert_eq!(event.config, config);
+                assert_eq!(event.amount_in, 100);
+                assert_eq!(event.output_amount, 95);
+            }
+            other => panic!("expected MeteoraDbcSwap, got {other:?}"),
+        }
+
+        let damm_filter = EventTypeFilter::include_only(vec![EventType::MeteoraDammV2Swap]);
+        assert!(parse_log_optimized_with_program_id(
+            &log,
+            Signature::default(),
+            1,
+            2,
+            Some(3),
+            4,
+            Some(&damm_filter),
+            false,
+            None,
+            Some(&program_ids::METEORA_DBC_PROGRAM_ID),
+        )
+        .is_none());
     }
 
     #[test]

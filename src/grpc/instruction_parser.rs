@@ -324,13 +324,13 @@ fn parse_inner_instruction(
             }
         }
         all_inner::meteora_dlmm::parse(&discriminator, inner_data, metadata)
-    } else if *program_id == program_ids::BONK_PROGRAM_ID {
+    } else if *program_id == program_ids::RAYDIUM_LAUNCHLAB_PROGRAM_ID {
         if let Some(f) = filter {
-            if !f.includes_raydium_launchpad() {
+            if !f.includes_raydium_launchlab() {
                 return None;
             }
         }
-        all_inner::bonk::parse(&discriminator, inner_data, metadata)
+        all_inner::raydium_launchlab::parse(&discriminator, inner_data, metadata)
     } else {
         None
     };
@@ -425,7 +425,7 @@ fn should_parse_instructions(filter: Option<&EventTypeFilter>) -> bool {
     }
 
     filter.includes_pumpswap()
-        || filter.includes_raydium_launchpad()
+        || filter.includes_raydium_launchlab()
         || filter.includes_raydium_cpmm()
         || filter.includes_raydium_clmm()
         || filter.includes_raydium_amm_v4()
@@ -466,13 +466,14 @@ mod tests {
         for event_type in [
             EventType::PumpSwapTrade,
             EventType::PumpFeesUpdateFeeShares,
-            EventType::BonkTrade,
+            EventType::RaydiumLaunchlabTrade,
             EventType::RaydiumCpmmSwap,
             EventType::RaydiumClmmSwap,
             EventType::RaydiumAmmV4Swap,
             EventType::OrcaWhirlpoolSwap,
             EventType::MeteoraPoolsSwap,
             EventType::MeteoraDammV2Swap,
+            EventType::MeteoraDammV2InitializePool,
             EventType::MeteoraDlmmSwap,
         ] {
             let filter = EventTypeFilter::include_only(vec![event_type]);
@@ -481,6 +482,23 @@ mod tests {
                 "instruction parsing should be enabled for {event_type:?}"
             );
         }
+
+        let filter = EventTypeFilter::include_only(vec![EventType::MeteoraDbcSwap]);
+        assert!(
+            !should_parse_instructions(Some(&filter)),
+            "DBC events are log-only until an instruction parser is implemented"
+        );
+
+        let filter = EventTypeFilter::include_only(vec![
+            EventType::AccountPumpFunGlobal,
+            EventType::AccountRaydiumClmmPoolState,
+            EventType::AccountRaydiumCpmmPoolState,
+            EventType::AccountOrcaWhirlpool,
+        ]);
+        assert!(
+            !should_parse_instructions(Some(&filter)),
+            "account-only non-Pump filters should stay on the account update path"
+        );
     }
 
     #[test]

@@ -38,15 +38,15 @@ pub mod discriminators {
 /// 主入口：根据 discriminator 解析事件
 #[inline]
 pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    match disc {
-        &discriminators::SWAP => parse_swap(data, metadata),
-        &discriminators::ADD_LIQUIDITY => parse_add_liquidity(data, metadata),
-        &discriminators::REMOVE_LIQUIDITY => parse_remove_liquidity(data, metadata),
-        &discriminators::INITIALIZE_POOL => parse_initialize_pool(data, metadata),
-        &discriminators::INITIALIZE_BIN_ARRAY => parse_initialize_bin_array(data, metadata),
-        &discriminators::CREATE_POSITION => parse_create_position(data, metadata),
-        &discriminators::CLOSE_POSITION => parse_close_position(data, metadata),
-        &discriminators::CLAIM_FEE => parse_claim_fee(data, metadata),
+    match *disc {
+        discriminators::SWAP => parse_swap(data, metadata),
+        discriminators::ADD_LIQUIDITY => parse_add_liquidity(data, metadata),
+        discriminators::REMOVE_LIQUIDITY => parse_remove_liquidity(data, metadata),
+        discriminators::INITIALIZE_POOL => parse_initialize_pool(data, metadata),
+        discriminators::INITIALIZE_BIN_ARRAY => parse_initialize_bin_array(data, metadata),
+        discriminators::CREATE_POSITION => parse_create_position(data, metadata),
+        discriminators::CLOSE_POSITION => parse_close_position(data, metadata),
+        discriminators::CLAIM_FEE => parse_claim_fee(data, metadata),
         _ => None,
     }
 }

@@ -459,7 +459,7 @@ mod tests {
             record_shredstream_dropped_event();
         }
 
-        assert!(SHREDSTREAM_DROPPED_EVENTS.load(Ordering::Relaxed) >= before + 1);
+        assert!(SHREDSTREAM_DROPPED_EVENTS.load(Ordering::Relaxed) > before);
     }
 
     #[test]

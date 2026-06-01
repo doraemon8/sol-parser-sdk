@@ -21,7 +21,6 @@ use crate::core::events::*;
 use crate::instr::inner_common::*;
 use solana_sdk::pubkey::Pubkey;
 
-pub mod bonk;
 pub mod meteora_amm;
 pub mod meteora_damm;
 pub mod meteora_dlmm;
@@ -29,3 +28,4 @@ pub mod orca;
 pub mod pump_fees;
 pub mod raydium_amm;
 pub mod raydium_cpmm;
+pub mod raydium_launchlab;

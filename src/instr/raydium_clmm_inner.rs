@@ -39,48 +39,48 @@ pub fn parse_raydium_clmm_inner_instruction(
     data: &[u8],
     metadata: EventMetadata,
 ) -> Option<DexEvent> {
-    match discriminator {
-        &discriminators::SWAP => crate::logs::raydium_clmm::parse_swap_from_data(data, metadata),
-        &discriminators::INCREASE_LIQUIDITY => {
+    match *discriminator {
+        discriminators::SWAP => crate::logs::raydium_clmm::parse_swap_from_data(data, metadata),
+        discriminators::INCREASE_LIQUIDITY => {
             crate::logs::raydium_clmm::parse_increase_liquidity_from_data(data, metadata)
         }
-        &discriminators::DECREASE_LIQUIDITY => {
+        discriminators::DECREASE_LIQUIDITY => {
             crate::logs::raydium_clmm::parse_decrease_liquidity_from_data(data, metadata)
         }
-        &discriminators::LIQUIDITY_CHANGE => {
+        discriminators::LIQUIDITY_CHANGE => {
             crate::logs::raydium_clmm::parse_liquidity_change_from_data(data, metadata)
         }
-        &discriminators::CONFIG_CHANGE => {
+        discriminators::CONFIG_CHANGE => {
             crate::logs::raydium_clmm::parse_config_change_from_data(data, metadata)
         }
-        &discriminators::CREATE_PERSONAL_POSITION => {
+        discriminators::CREATE_PERSONAL_POSITION => {
             crate::logs::raydium_clmm::parse_create_personal_position_from_data(data, metadata)
         }
-        &discriminators::LIQUIDITY_CALCULATE => {
+        discriminators::LIQUIDITY_CALCULATE => {
             crate::logs::raydium_clmm::parse_liquidity_calculate_from_data(data, metadata)
         }
-        &discriminators::OPEN_LIMIT_ORDER => {
+        discriminators::OPEN_LIMIT_ORDER => {
             crate::logs::raydium_clmm::parse_open_limit_order_from_data(data, metadata)
         }
-        &discriminators::INCREASE_LIMIT_ORDER => {
+        discriminators::INCREASE_LIMIT_ORDER => {
             crate::logs::raydium_clmm::parse_increase_limit_order_from_data(data, metadata)
         }
-        &discriminators::DECREASE_LIMIT_ORDER => {
+        discriminators::DECREASE_LIMIT_ORDER => {
             crate::logs::raydium_clmm::parse_decrease_limit_order_from_data(data, metadata)
         }
-        &discriminators::SETTLE_LIMIT_ORDER => {
+        discriminators::SETTLE_LIMIT_ORDER => {
             crate::logs::raydium_clmm::parse_settle_limit_order_from_data(data, metadata)
         }
-        &discriminators::UPDATE_REWARD_INFOS => {
+        discriminators::UPDATE_REWARD_INFOS => {
             crate::logs::raydium_clmm::parse_update_reward_infos_from_data(data, metadata)
         }
-        &discriminators::CREATE_POOL => {
+        discriminators::CREATE_POOL => {
             crate::logs::raydium_clmm::parse_create_pool_from_data(data, metadata)
         }
-        &discriminators::COLLECT_PERSONAL_FEE => {
+        discriminators::COLLECT_PERSONAL_FEE => {
             crate::logs::raydium_clmm::parse_collect_personal_fee_from_data(data, metadata)
         }
-        &discriminators::COLLECT_PROTOCOL_FEE => {
+        discriminators::COLLECT_PROTOCOL_FEE => {
             crate::logs::raydium_clmm::parse_collect_protocol_fee_from_data(data, metadata)
         }
         _ => None,

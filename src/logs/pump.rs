@@ -43,23 +43,35 @@ pub fn normalize_pumpfun_ix_name(ix_name: &str) -> &str {
 // --- binary_read ---------------------------------------------------
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure `offset..offset + 8` is within `data`.
 pub unsafe fn read_u64_unchecked(data: &[u8], offset: usize) -> u64 {
     let ptr = data.as_ptr().add(offset) as *const u64;
     u64::from_le(ptr.read_unaligned())
 }
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure `offset..offset + 8` is within `data`.
 pub unsafe fn read_i64_unchecked(data: &[u8], offset: usize) -> i64 {
     let ptr = data.as_ptr().add(offset) as *const i64;
     i64::from_le(ptr.read_unaligned())
 }
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure `offset` is within `data`.
 pub unsafe fn read_bool_unchecked(data: &[u8], offset: usize) -> bool {
     *data.get_unchecked(offset) == 1
 }
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure `offset..offset + 32` is within `data`.
 pub unsafe fn read_pubkey_unchecked(data: &[u8], offset: usize) -> Pubkey {
     #[cfg(target_arch = "x86_64")]
     {
@@ -77,6 +89,10 @@ pub unsafe fn read_pubkey_unchecked(data: &[u8], offset: usize) -> Pubkey {
 }
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure the 4-byte length prefix is readable and, when present,
+/// the following bytes are valid UTF-8.
 pub unsafe fn read_str_unchecked(data: &[u8], offset: usize) -> Option<(&str, usize)> {
     if data.len() < offset + 4 {
         return None;
@@ -93,18 +109,25 @@ pub unsafe fn read_str_unchecked(data: &[u8], offset: usize) -> Option<(&str, us
 }
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure `offset..offset + 4` is within `data`.
 pub unsafe fn read_u32_unchecked(data: &[u8], offset: usize) -> u32 {
     let ptr = data.as_ptr().add(offset) as *const u32;
     u32::from_le(ptr.read_unaligned())
 }
 
 #[inline(always)]
+/// # Safety
+///
+/// Caller must ensure `offset..offset + 2` is within `data`.
 pub unsafe fn read_u16_unchecked(data: &[u8], offset: usize) -> u16 {
     let ptr = data.as_ptr().add(offset) as *const u16;
     u16::from_le(ptr.read_unaligned())
 }
 
 const MAX_TRADE_SHAREHOLDERS: usize = 64;
+type TradeEventExtensions = (u64, u64, Vec<PumpFeesShareholder>, Pubkey, u64, u64, u64);
 
 #[inline(always)]
 unsafe fn read_optional_u64(data: &[u8], offset: &mut usize) -> u64 {
@@ -160,7 +183,7 @@ unsafe fn read_trade_shareholders(
 pub(crate) unsafe fn read_trade_event_extensions(
     data: &[u8],
     offset: &mut usize,
-) -> Option<(u64, u64, Vec<PumpFeesShareholder>, Pubkey, u64, u64, u64)> {
+) -> Option<TradeEventExtensions> {
     let buyback_fee_basis_points = read_optional_u64(data, offset);
     let buyback_fee = read_optional_u64(data, offset);
     let shareholders = read_trade_shareholders(data, offset)?;

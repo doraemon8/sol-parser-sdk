@@ -224,9 +224,7 @@ pub enum Protocol {
     PumpFun,
     PumpSwap,
     PumpFees,
-    /// Backward-compatible alias for Raydium Launchpad / LaunchLab.
-    Bonk,
-    RaydiumLaunchpad,
+    RaydiumLaunchlab,
     RaydiumCpmm,
     RaydiumClmm,
     RaydiumAmmV4,
@@ -234,6 +232,7 @@ pub enum Protocol {
     MeteoraPools,
     MeteoraDammV2,
     MeteoraDlmm,
+    MeteoraDbc,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -242,10 +241,10 @@ pub enum EventType {
     // Block events
     BlockMeta,
 
-    // Bonk events
-    BonkTrade,
-    BonkPoolCreate,
-    BonkMigrateAmm,
+    // RaydiumLaunchlab events
+    RaydiumLaunchlabTrade,
+    RaydiumLaunchlabPoolCreate,
+    RaydiumLaunchlabMigrateAmm,
 
     // PumpFun events
     PumpFunTrade,         // All trade events (backward compatible)
@@ -329,13 +328,18 @@ pub enum EventType {
     MeteoraDammV2Swap,
     MeteoraDammV2AddLiquidity,
     MeteoraDammV2RemoveLiquidity,
-    // MeteoraDammV2InitializePool,
+    MeteoraDammV2InitializePool,
     MeteoraDammV2CreatePosition,
     MeteoraDammV2ClosePosition,
     // MeteoraDammV2ClaimPositionFee,
     // MeteoraDammV2InitializeReward,
     // MeteoraDammV2FundReward,
     // MeteoraDammV2ClaimReward,
+
+    // Meteora DBC events
+    MeteoraDbcSwap,
+    MeteoraDbcInitializePool,
+    MeteoraDbcCurveComplete,
 
     // Meteora DLMM events
     MeteoraDlmmSwap,
@@ -349,6 +353,7 @@ pub enum EventType {
 
     // Account events
     TokenAccount,
+    TokenInfo,
     NonceAccount,
     AccountPumpFunGlobal,
     AccountPumpFunBondingCurve,
@@ -362,6 +367,13 @@ pub enum EventType {
     AccountRaydiumClmmAmmConfig,
     AccountRaydiumClmmPoolState,
     AccountRaydiumClmmTickArrayState,
+    AccountRaydiumCpmmAmmConfig,
+    AccountRaydiumCpmmPoolState,
+    AccountOrcaWhirlpool,
+    AccountOrcaPosition,
+    AccountOrcaTickArray,
+    AccountOrcaFeeTier,
+    AccountOrcaWhirlpoolsConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -380,17 +392,8 @@ impl EventTypeFilter {
     }
 
     #[inline]
-    fn includes_group<F>(&self, mut is_group: F) -> bool
-    where
-        F: FnMut(&EventType) -> bool,
-    {
-        if let Some(ref include_only) = self.include_only {
-            return include_only.iter().any(&mut is_group);
-        }
-        // `exclude_types` cannot be used as a protocol-level skip hint. Excluding
-        // one event in a protocol must not suppress every other event in that
-        // protocol; exact exclusion happens after parsing.
-        true
+    fn includes_any(&self, event_types: &[EventType]) -> bool {
+        event_types.iter().any(|event_type| self.should_include(*event_type))
     }
 
     pub fn should_include(&self, event_type: EventType) -> bool {
@@ -471,187 +474,195 @@ impl EventTypeFilter {
     }
 
     #[inline]
-    pub fn includes_pumpfun(&self) -> bool {
-        self.includes_group(|t| {
+    pub fn includes_block_meta(&self) -> bool {
+        if let Some(ref include_only) = self.include_only {
+            return include_only.contains(&EventType::BlockMeta);
+        }
+        false
+    }
+
+    #[inline]
+    pub fn normalize_dex_event(
+        &self,
+        event: crate::core::events::DexEvent,
+    ) -> crate::core::events::DexEvent {
+        use crate::core::events::DexEvent;
+
+        let Some(ref include_only) = self.include_only else { return event };
+        if !include_only.contains(&EventType::PumpFunTrade) {
+            return event;
+        }
+
+        let has_specific_trade_filter = include_only.iter().any(|t| {
             matches!(
                 t,
-                EventType::PumpFunTrade
-                    | EventType::PumpFunBuy
-                    | EventType::PumpFunSell
-                    | EventType::PumpFunBuyExactSolIn
-                    | EventType::PumpFunCreate
-                    | EventType::PumpFunCreateV2
-                    | EventType::PumpFunComplete
-                    | EventType::PumpFunMigrate
-                    | EventType::PumpFunMigrateBondingCurveCreator
-                    | EventType::AccountPumpFunGlobal
-                    | EventType::AccountPumpFunBondingCurve
-                    | EventType::AccountPumpFunFeeConfig
-                    | EventType::AccountPumpFunSharingConfig
-                    | EventType::AccountPumpFunGlobalVolumeAccumulator
-                    | EventType::AccountPumpFunUserVolumeAccumulator
+                EventType::PumpFunBuy | EventType::PumpFunSell | EventType::PumpFunBuyExactSolIn
             )
-        })
+        });
+        if has_specific_trade_filter {
+            return event;
+        }
+
+        match event {
+            DexEvent::PumpFunBuy(t)
+            | DexEvent::PumpFunSell(t)
+            | DexEvent::PumpFunBuyExactSolIn(t) => DexEvent::PumpFunTrade(t),
+            other => other,
+        }
+    }
+
+    #[inline]
+    pub fn includes_pumpfun(&self) -> bool {
+        self.includes_any(&[
+            EventType::PumpFunTrade,
+            EventType::PumpFunBuy,
+            EventType::PumpFunSell,
+            EventType::PumpFunBuyExactSolIn,
+            EventType::PumpFunCreate,
+            EventType::PumpFunCreateV2,
+            EventType::PumpFunComplete,
+            EventType::PumpFunMigrate,
+            EventType::PumpFunMigrateBondingCurveCreator,
+        ])
     }
 
     #[inline]
     pub fn includes_meteora_damm_v2(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::MeteoraDammV2Swap
-                    | EventType::MeteoraDammV2AddLiquidity
-                    | EventType::MeteoraDammV2CreatePosition
-                    | EventType::MeteoraDammV2ClosePosition
-                    | EventType::MeteoraDammV2RemoveLiquidity
-            )
-        })
+        self.includes_any(&[
+            EventType::MeteoraDammV2Swap,
+            EventType::MeteoraDammV2AddLiquidity,
+            EventType::MeteoraDammV2CreatePosition,
+            EventType::MeteoraDammV2ClosePosition,
+            EventType::MeteoraDammV2InitializePool,
+            EventType::MeteoraDammV2RemoveLiquidity,
+        ])
     }
 
     #[inline]
     pub fn includes_pump_fees(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::PumpFeesCreateFeeSharingConfig
-                    | EventType::PumpFeesInitializeFeeConfig
-                    | EventType::PumpFeesResetFeeSharingConfig
-                    | EventType::PumpFeesRevokeFeeSharingAuthority
-                    | EventType::PumpFeesTransferFeeSharingAuthority
-                    | EventType::PumpFeesUpdateAdmin
-                    | EventType::PumpFeesUpdateFeeConfig
-                    | EventType::PumpFeesUpdateFeeShares
-                    | EventType::PumpFeesUpsertFeeTiers
-            )
-        })
+        self.includes_any(&[
+            EventType::PumpFeesCreateFeeSharingConfig,
+            EventType::PumpFeesInitializeFeeConfig,
+            EventType::PumpFeesResetFeeSharingConfig,
+            EventType::PumpFeesRevokeFeeSharingAuthority,
+            EventType::PumpFeesTransferFeeSharingAuthority,
+            EventType::PumpFeesUpdateAdmin,
+            EventType::PumpFeesUpdateFeeConfig,
+            EventType::PumpFeesUpdateFeeShares,
+            EventType::PumpFeesUpsertFeeTiers,
+        ])
     }
 
     /// Check if PumpSwap protocol events are included in the filter
     #[inline]
     pub fn includes_pumpswap(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::PumpSwapTrade
-                    | EventType::PumpSwapBuy
-                    | EventType::PumpSwapSell
-                    | EventType::PumpSwapCreatePool
-                    | EventType::PumpSwapLiquidityAdded
-                    | EventType::PumpSwapLiquidityRemoved
-            )
-        })
+        self.includes_any(&[
+            EventType::PumpSwapTrade,
+            EventType::PumpSwapBuy,
+            EventType::PumpSwapSell,
+            EventType::PumpSwapCreatePool,
+            EventType::PumpSwapLiquidityAdded,
+            EventType::PumpSwapLiquidityRemoved,
+        ])
     }
 
-    /// Check if Raydium Launchpad (Bonk) events are included in the filter
+    /// Check if Raydium LaunchLab events are included in the filter.
     #[inline]
-    pub fn includes_raydium_launchpad(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::BonkTrade | EventType::BonkPoolCreate | EventType::BonkMigrateAmm
-            )
-        })
+    pub fn includes_raydium_launchlab(&self) -> bool {
+        self.includes_any(&[
+            EventType::RaydiumLaunchlabTrade,
+            EventType::RaydiumLaunchlabPoolCreate,
+            EventType::RaydiumLaunchlabMigrateAmm,
+        ])
     }
 
     #[inline]
     pub fn includes_raydium_cpmm(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::RaydiumCpmmSwap
-                    | EventType::RaydiumCpmmDeposit
-                    | EventType::RaydiumCpmmWithdraw
-                    | EventType::RaydiumCpmmInitialize
-            )
-        })
+        self.includes_any(&[
+            EventType::RaydiumCpmmSwap,
+            EventType::RaydiumCpmmDeposit,
+            EventType::RaydiumCpmmWithdraw,
+            EventType::RaydiumCpmmInitialize,
+        ])
     }
 
     #[inline]
     pub fn includes_raydium_clmm(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::RaydiumClmmSwap
-                    | EventType::RaydiumClmmCreatePool
-                    | EventType::RaydiumClmmOpenPosition
-                    | EventType::RaydiumClmmClosePosition
-                    | EventType::RaydiumClmmIncreaseLiquidity
-                    | EventType::RaydiumClmmDecreaseLiquidity
-                    | EventType::RaydiumClmmLiquidityChange
-                    | EventType::RaydiumClmmConfigChange
-                    | EventType::RaydiumClmmCreatePersonalPosition
-                    | EventType::RaydiumClmmLiquidityCalculate
-                    | EventType::RaydiumClmmOpenLimitOrder
-                    | EventType::RaydiumClmmIncreaseLimitOrder
-                    | EventType::RaydiumClmmDecreaseLimitOrder
-                    | EventType::RaydiumClmmSettleLimitOrder
-                    | EventType::RaydiumClmmUpdateRewardInfos
-                    | EventType::RaydiumClmmOpenPositionWithTokenExtNft
-                    | EventType::RaydiumClmmCollectFee
-                    | EventType::AccountRaydiumClmmAmmConfig
-                    | EventType::AccountRaydiumClmmPoolState
-                    | EventType::AccountRaydiumClmmTickArrayState
-            )
-        })
+        self.includes_any(&[
+            EventType::RaydiumClmmSwap,
+            EventType::RaydiumClmmCreatePool,
+            EventType::RaydiumClmmOpenPosition,
+            EventType::RaydiumClmmClosePosition,
+            EventType::RaydiumClmmIncreaseLiquidity,
+            EventType::RaydiumClmmDecreaseLiquidity,
+            EventType::RaydiumClmmLiquidityChange,
+            EventType::RaydiumClmmConfigChange,
+            EventType::RaydiumClmmCreatePersonalPosition,
+            EventType::RaydiumClmmLiquidityCalculate,
+            EventType::RaydiumClmmOpenLimitOrder,
+            EventType::RaydiumClmmIncreaseLimitOrder,
+            EventType::RaydiumClmmDecreaseLimitOrder,
+            EventType::RaydiumClmmSettleLimitOrder,
+            EventType::RaydiumClmmUpdateRewardInfos,
+            EventType::RaydiumClmmOpenPositionWithTokenExtNft,
+            EventType::RaydiumClmmCollectFee,
+        ])
     }
 
     #[inline]
     pub fn includes_raydium_amm_v4(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::RaydiumAmmV4Swap
-                    | EventType::RaydiumAmmV4Deposit
-                    | EventType::RaydiumAmmV4Withdraw
-                    | EventType::RaydiumAmmV4Initialize2
-                    | EventType::RaydiumAmmV4WithdrawPnl
-            )
-        })
+        self.includes_any(&[
+            EventType::RaydiumAmmV4Swap,
+            EventType::RaydiumAmmV4Deposit,
+            EventType::RaydiumAmmV4Withdraw,
+            EventType::RaydiumAmmV4Initialize2,
+            EventType::RaydiumAmmV4WithdrawPnl,
+        ])
     }
 
     #[inline]
     pub fn includes_orca_whirlpool(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::OrcaWhirlpoolSwap
-                    | EventType::OrcaWhirlpoolLiquidityIncreased
-                    | EventType::OrcaWhirlpoolLiquidityDecreased
-                    | EventType::OrcaWhirlpoolPoolInitialized
-            )
-        })
+        self.includes_any(&[
+            EventType::OrcaWhirlpoolSwap,
+            EventType::OrcaWhirlpoolLiquidityIncreased,
+            EventType::OrcaWhirlpoolLiquidityDecreased,
+            EventType::OrcaWhirlpoolPoolInitialized,
+        ])
     }
 
     #[inline]
     pub fn includes_meteora_pools(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::MeteoraPoolsSwap
-                    | EventType::MeteoraPoolsAddLiquidity
-                    | EventType::MeteoraPoolsRemoveLiquidity
-                    | EventType::MeteoraPoolsBootstrapLiquidity
-                    | EventType::MeteoraPoolsPoolCreated
-                    | EventType::MeteoraPoolsSetPoolFees
-            )
-        })
+        self.includes_any(&[
+            EventType::MeteoraPoolsSwap,
+            EventType::MeteoraPoolsAddLiquidity,
+            EventType::MeteoraPoolsRemoveLiquidity,
+            EventType::MeteoraPoolsBootstrapLiquidity,
+            EventType::MeteoraPoolsPoolCreated,
+            EventType::MeteoraPoolsSetPoolFees,
+        ])
     }
 
     #[inline]
     pub fn includes_meteora_dlmm(&self) -> bool {
-        self.includes_group(|t| {
-            matches!(
-                t,
-                EventType::MeteoraDlmmSwap
-                    | EventType::MeteoraDlmmAddLiquidity
-                    | EventType::MeteoraDlmmRemoveLiquidity
-                    | EventType::MeteoraDlmmInitializePool
-                    | EventType::MeteoraDlmmInitializeBinArray
-                    | EventType::MeteoraDlmmCreatePosition
-                    | EventType::MeteoraDlmmClosePosition
-                    | EventType::MeteoraDlmmClaimFee
-            )
-        })
+        self.includes_any(&[
+            EventType::MeteoraDlmmSwap,
+            EventType::MeteoraDlmmAddLiquidity,
+            EventType::MeteoraDlmmRemoveLiquidity,
+            EventType::MeteoraDlmmInitializePool,
+            EventType::MeteoraDlmmInitializeBinArray,
+            EventType::MeteoraDlmmCreatePosition,
+            EventType::MeteoraDlmmClosePosition,
+            EventType::MeteoraDlmmClaimFee,
+        ])
+    }
+
+    #[inline]
+    pub fn includes_meteora_dbc(&self) -> bool {
+        self.includes_any(&[
+            EventType::MeteoraDbcSwap,
+            EventType::MeteoraDbcInitializePool,
+            EventType::MeteoraDbcCurveComplete,
+        ])
     }
 }
 
@@ -717,9 +728,13 @@ pub fn event_type_from_dex_event(event: &crate::core::events::DexEvent) -> Optio
         DexEvent::MeteoraDammV2ClosePosition(_) => Some(EventType::MeteoraDammV2ClosePosition),
         DexEvent::MeteoraDammV2AddLiquidity(_) => Some(EventType::MeteoraDammV2AddLiquidity),
         DexEvent::MeteoraDammV2RemoveLiquidity(_) => Some(EventType::MeteoraDammV2RemoveLiquidity),
-        DexEvent::BonkTrade(_) => Some(EventType::BonkTrade),
-        DexEvent::BonkPoolCreate(_) => Some(EventType::BonkPoolCreate),
-        DexEvent::BonkMigrateAmm(_) => Some(EventType::BonkMigrateAmm),
+        DexEvent::MeteoraDammV2InitializePool(_) => Some(EventType::MeteoraDammV2InitializePool),
+        DexEvent::MeteoraDbcSwap(_) => Some(EventType::MeteoraDbcSwap),
+        DexEvent::MeteoraDbcInitializePool(_) => Some(EventType::MeteoraDbcInitializePool),
+        DexEvent::MeteoraDbcCurveComplete(_) => Some(EventType::MeteoraDbcCurveComplete),
+        DexEvent::RaydiumLaunchlabTrade(_) => Some(EventType::RaydiumLaunchlabTrade),
+        DexEvent::RaydiumLaunchlabPoolCreate(_) => Some(EventType::RaydiumLaunchlabPoolCreate),
+        DexEvent::RaydiumLaunchlabMigrateAmm(_) => Some(EventType::RaydiumLaunchlabMigrateAmm),
         DexEvent::RaydiumClmmSwap(_) => Some(EventType::RaydiumClmmSwap),
         DexEvent::RaydiumClmmCreatePool(_) => Some(EventType::RaydiumClmmCreatePool),
         DexEvent::RaydiumClmmOpenPosition(_) => Some(EventType::RaydiumClmmOpenPosition),
@@ -756,6 +771,8 @@ pub fn event_type_from_dex_event(event: &crate::core::events::DexEvent) -> Optio
         DexEvent::RaydiumCpmmDeposit(_) => Some(EventType::RaydiumCpmmDeposit),
         DexEvent::RaydiumCpmmWithdraw(_) => Some(EventType::RaydiumCpmmWithdraw),
         DexEvent::RaydiumCpmmInitialize(_) => Some(EventType::RaydiumCpmmInitialize),
+        DexEvent::RaydiumCpmmAmmConfigAccount(_) => Some(EventType::AccountRaydiumCpmmAmmConfig),
+        DexEvent::RaydiumCpmmPoolStateAccount(_) => Some(EventType::AccountRaydiumCpmmPoolState),
         DexEvent::RaydiumAmmV4Swap(_) => Some(EventType::RaydiumAmmV4Swap),
         DexEvent::RaydiumAmmV4Deposit(_) => Some(EventType::RaydiumAmmV4Deposit),
         DexEvent::RaydiumAmmV4Initialize2(_) => Some(EventType::RaydiumAmmV4Initialize2),
@@ -769,6 +786,11 @@ pub fn event_type_from_dex_event(event: &crate::core::events::DexEvent) -> Optio
             Some(EventType::OrcaWhirlpoolLiquidityDecreased)
         }
         DexEvent::OrcaWhirlpoolPoolInitialized(_) => Some(EventType::OrcaWhirlpoolPoolInitialized),
+        DexEvent::OrcaWhirlpoolAccount(_) => Some(EventType::AccountOrcaWhirlpool),
+        DexEvent::OrcaPositionAccount(_) => Some(EventType::AccountOrcaPosition),
+        DexEvent::OrcaTickArrayAccount(_) => Some(EventType::AccountOrcaTickArray),
+        DexEvent::OrcaFeeTierAccount(_) => Some(EventType::AccountOrcaFeeTier),
+        DexEvent::OrcaWhirlpoolsConfigAccount(_) => Some(EventType::AccountOrcaWhirlpoolsConfig),
         DexEvent::MeteoraPoolsSwap(_) => Some(EventType::MeteoraPoolsSwap),
         DexEvent::MeteoraPoolsAddLiquidity(_) => Some(EventType::MeteoraPoolsAddLiquidity),
         DexEvent::MeteoraPoolsRemoveLiquidity(_) => Some(EventType::MeteoraPoolsRemoveLiquidity),
@@ -788,11 +810,12 @@ pub fn event_type_from_dex_event(event: &crate::core::events::DexEvent) -> Optio
         DexEvent::MeteoraDlmmClosePosition(_) => Some(EventType::MeteoraDlmmClosePosition),
         DexEvent::MeteoraDlmmClaimFee(_) => Some(EventType::MeteoraDlmmClaimFee),
         DexEvent::TokenAccount(_) => Some(EventType::TokenAccount),
+        DexEvent::TokenInfo(_) => Some(EventType::TokenInfo),
         DexEvent::NonceAccount(_) => Some(EventType::NonceAccount),
         DexEvent::PumpSwapGlobalConfigAccount(_) => Some(EventType::AccountPumpSwapGlobalConfig),
         DexEvent::PumpSwapPoolAccount(_) => Some(EventType::AccountPumpSwapPool),
         DexEvent::BlockMeta(_) => Some(EventType::BlockMeta),
-        DexEvent::TokenInfo(_) | DexEvent::Error(_) => None,
+        DexEvent::Error(_) => None,
     }
 }
 
@@ -826,20 +849,40 @@ mod event_type_filter_tests {
     }
 
     #[test]
+    fn generic_pumpfun_trade_filter_normalizes_specific_variants() {
+        use crate::core::events::{DexEvent, PumpFunTradeEvent};
+
+        let filter = EventTypeFilter::include_only(vec![EventType::PumpFunTrade]);
+        let event = DexEvent::PumpFunBuy(PumpFunTradeEvent { is_buy: true, ..Default::default() });
+        assert!(matches!(filter.normalize_dex_event(event), DexEvent::PumpFunTrade(_)));
+
+        let specific_filter =
+            EventTypeFilter::include_only(vec![EventType::PumpFunTrade, EventType::PumpFunBuy]);
+        let event = DexEvent::PumpFunBuy(PumpFunTradeEvent { is_buy: true, ..Default::default() });
+        assert!(matches!(specific_filter.normalize_dex_event(event), DexEvent::PumpFunBuy(_)));
+    }
+
+    #[test]
     fn all_protocol_groups_are_filterable() {
         assert!(EventTypeFilter::include_only(vec![EventType::PumpFunTrade]).includes_pumpfun());
+        assert!(!EventTypeFilter::include_only(vec![EventType::AccountPumpFunGlobal])
+            .includes_pumpfun());
+        assert!(
+            !EventTypeFilter::include_only(vec![EventType::PumpFeesUpdateAdmin]).includes_pumpfun()
+        );
         assert!(EventTypeFilter::include_only(vec![EventType::PumpSwapTrade]).includes_pumpswap());
         assert!(EventTypeFilter::include_only(vec![EventType::PumpFeesUpdateFeeShares])
             .includes_pump_fees());
-        assert!(
-            EventTypeFilter::include_only(vec![EventType::BonkTrade]).includes_raydium_launchpad()
-        );
+        assert!(EventTypeFilter::include_only(vec![EventType::RaydiumLaunchlabTrade])
+            .includes_raydium_launchlab());
         assert!(
             EventTypeFilter::include_only(vec![EventType::RaydiumCpmmSwap]).includes_raydium_cpmm()
         );
         assert!(
             EventTypeFilter::include_only(vec![EventType::RaydiumClmmSwap]).includes_raydium_clmm()
         );
+        assert!(!EventTypeFilter::include_only(vec![EventType::AccountRaydiumClmmPoolState])
+            .includes_raydium_clmm());
         assert!(EventTypeFilter::include_only(vec![EventType::RaydiumAmmV4Swap])
             .includes_raydium_amm_v4());
         assert!(EventTypeFilter::include_only(vec![EventType::OrcaWhirlpoolSwap])
@@ -848,8 +891,13 @@ mod event_type_filter_tests {
             .includes_meteora_pools());
         assert!(EventTypeFilter::include_only(vec![EventType::MeteoraDammV2Swap])
             .includes_meteora_damm_v2());
+        assert!(EventTypeFilter::include_only(vec![EventType::MeteoraDammV2InitializePool])
+            .includes_meteora_damm_v2());
         assert!(
             EventTypeFilter::include_only(vec![EventType::MeteoraDlmmSwap]).includes_meteora_dlmm()
+        );
+        assert!(
+            EventTypeFilter::include_only(vec![EventType::MeteoraDbcSwap]).includes_meteora_dbc()
         );
     }
 
@@ -859,6 +907,21 @@ mod event_type_filter_tests {
         assert!(raydium.includes_raydium_cpmm());
         assert!(!raydium.should_include(EventType::RaydiumCpmmSwap));
         assert!(raydium.should_include(EventType::RaydiumCpmmDeposit));
+
+        let all_cpmm = EventTypeFilter::exclude_types(vec![
+            EventType::RaydiumCpmmSwap,
+            EventType::RaydiumCpmmDeposit,
+            EventType::RaydiumCpmmWithdraw,
+            EventType::RaydiumCpmmInitialize,
+        ]);
+        assert!(!all_cpmm.includes_raydium_cpmm());
+
+        let all_launchlab = EventTypeFilter::exclude_types(vec![
+            EventType::RaydiumLaunchlabTrade,
+            EventType::RaydiumLaunchlabPoolCreate,
+            EventType::RaydiumLaunchlabMigrateAmm,
+        ]);
+        assert!(!all_launchlab.includes_raydium_launchlab());
 
         let pump = EventTypeFilter::exclude_types(vec![EventType::PumpFunBuy]);
         assert!(pump.includes_pumpfun());

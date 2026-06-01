@@ -4,7 +4,7 @@
 //! - gRPC连接和订阅管理
 //! - 事件类型过滤
 //! - 账户和交易过滤
-//! - 多协议支持（PumpFun, Bonk, Raydium等）
+//! - 多协议支持（PumpFun, RaydiumLaunchlab, Raydium等）
 //! - [`subscribe_builder`]：构造 Yellowstone `SubscribeRequest`（DEX 与 mentions 监控共用）
 //! - [`transaction_meta`]：原始 `Transaction` / `TransactionStatusMeta` 工具（转账分析等）
 
@@ -27,7 +27,7 @@ pub use client::YellowstoneGrpc;
 pub use geyser_connect::{connect_yellowstone_geyser, GeyserConnectConfig};
 pub use subscribe_builder::{
     build_subscribe_request, build_subscribe_request_with_commitment,
-    build_subscribe_transaction_filters_named,
+    build_subscribe_request_with_event_filter, build_subscribe_transaction_filters_named,
 };
 pub use transaction_meta::{
     collect_account_keys_bs58, collect_watch_transfer_counterparty_pairs,

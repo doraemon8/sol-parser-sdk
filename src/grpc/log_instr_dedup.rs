@@ -38,15 +38,15 @@ enum LogInstrDedupKey {
         pool: Pubkey,
         user: Pubkey,
     },
-    BonkTrade {
+    RaydiumLaunchlabTrade {
         pool: Pubkey,
         user: Pubkey,
         is_buy: bool,
     },
-    BonkPoolCreate {
+    RaydiumLaunchlabPoolCreate {
         pool: Pubkey,
     },
-    BonkMigrateAmm {
+    RaydiumLaunchlabMigrateAmm {
         old_pool: Pubkey,
         new_pool: Pubkey,
         user: Pubkey,
@@ -134,11 +134,15 @@ fn log_instr_dedup_key(ev: &DexEvent) -> Option<LogInstrDedupKey> {
         PumpFunMigrate(m) => {
             Some(LogInstrDedupKey::PumpFunMigrate { mint: m.mint, pool: m.pool, user: m.user })
         }
-        BonkTrade(t) => {
-            Some(LogInstrDedupKey::BonkTrade { pool: t.pool_state, user: t.user, is_buy: t.is_buy })
+        RaydiumLaunchlabTrade(t) => Some(LogInstrDedupKey::RaydiumLaunchlabTrade {
+            pool: t.pool_state,
+            user: t.user,
+            is_buy: t.is_buy,
+        }),
+        RaydiumLaunchlabPoolCreate(p) => {
+            Some(LogInstrDedupKey::RaydiumLaunchlabPoolCreate { pool: p.pool_state })
         }
-        BonkPoolCreate(p) => Some(LogInstrDedupKey::BonkPoolCreate { pool: p.pool_state }),
-        BonkMigrateAmm(m) => Some(LogInstrDedupKey::BonkMigrateAmm {
+        RaydiumLaunchlabMigrateAmm(m) => Some(LogInstrDedupKey::RaydiumLaunchlabMigrateAmm {
             old_pool: m.old_pool,
             new_pool: m.new_pool,
             user: m.user,
@@ -269,15 +273,17 @@ mod tests {
         let user = Pubkey::new_unique();
         let creator = Pubkey::new_unique();
 
-        let mut t1 = PumpFunTradeEvent::default();
-        t1.metadata = dummy_meta();
-        t1.mint = mint;
-        t1.user = user;
-        t1.creator = creator;
-        t1.sol_amount = 1_000;
-        t1.token_amount = 2_000;
-        t1.is_buy = true;
-        t1.ix_name = "buy".to_string();
+        let t1 = PumpFunTradeEvent {
+            metadata: dummy_meta(),
+            mint,
+            user,
+            creator,
+            sol_amount: 1_000,
+            token_amount: 2_000,
+            is_buy: true,
+            ix_name: "buy".to_string(),
+            ..Default::default()
+        };
 
         let mut t2 = t1.clone();
         t2.sol_amount = 9_999_999; // 模拟 ix 侧金额与日志不一致（应保留日志）
@@ -364,15 +370,17 @@ mod tests {
         let bc1 = Pubkey::new_unique();
         let bc2 = Pubkey::new_unique();
 
-        let mut l1 = PumpFunTradeEvent::default();
-        l1.metadata = dummy_meta();
-        l1.mint = mint;
-        l1.user = user;
-        l1.creator = creator;
-        l1.sol_amount = 100;
-        l1.token_amount = 200;
-        l1.is_buy = true;
-        l1.ix_name = "buy".to_string();
+        let l1 = PumpFunTradeEvent {
+            metadata: dummy_meta(),
+            mint,
+            user,
+            creator,
+            sol_amount: 100,
+            token_amount: 200,
+            is_buy: true,
+            ix_name: "buy".to_string(),
+            ..Default::default()
+        };
 
         let mut l2 = l1.clone();
         l2.sol_amount = 300;
@@ -406,14 +414,16 @@ mod tests {
         let mint = Pubkey::new_unique();
         let user = Pubkey::new_unique();
 
-        let mut first = PumpFunTradeEvent::default();
-        first.metadata = dummy_meta();
-        first.mint = mint;
-        first.user = user;
-        first.sol_amount = 1_000_000;
-        first.token_amount = 100;
-        first.is_buy = true;
-        first.ix_name = "buy".to_string();
+        let first = PumpFunTradeEvent {
+            metadata: dummy_meta(),
+            mint,
+            user,
+            sol_amount: 1_000_000,
+            token_amount: 100,
+            is_buy: true,
+            ix_name: "buy".to_string(),
+            ..Default::default()
+        };
 
         let mut second = first.clone();
         second.sol_amount = 2_000_000;
@@ -432,13 +442,15 @@ mod tests {
         let u1 = Pubkey::new_unique();
         let u2 = Pubkey::new_unique();
 
-        let mut a = PumpFunTradeEvent::default();
-        a.metadata = dummy_meta();
-        a.mint = mint;
-        a.user = u1;
-        a.sol_amount = 100;
-        a.token_amount = 200;
-        a.is_buy = true;
+        let a = PumpFunTradeEvent {
+            metadata: dummy_meta(),
+            mint,
+            user: u1,
+            sol_amount: 100,
+            token_amount: 200,
+            is_buy: true,
+            ..Default::default()
+        };
 
         let mut b = a.clone();
         b.user = u2;

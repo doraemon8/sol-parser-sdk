@@ -61,9 +61,9 @@ pub struct BlockMetaEvent {
     pub metadata: EventMetadata,
 }
 
-/// Bonk Pool Create Event
+/// RaydiumLaunchlab Pool Create Event
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkPoolCreateEvent {
+pub struct RaydiumLaunchlabPoolCreateEvent {
     pub metadata: EventMetadata,
     pub base_mint_param: BaseMintParam,
     pub pool_state: Pubkey,
@@ -78,10 +78,10 @@ pub struct BaseMintParam {
     pub decimals: u8,
 }
 
-/// Bonk Trade Event
+/// RaydiumLaunchlab Trade Event
 #[cfg_attr(feature = "parse-borsh", derive(BorshDeserialize))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkTradeEvent {
+pub struct RaydiumLaunchlabTradeEvent {
     #[cfg_attr(feature = "parse-borsh", borsh(skip))]
     pub metadata: EventMetadata,
 
@@ -106,9 +106,9 @@ pub enum TradeDirection {
     Sell,
 }
 
-/// Bonk Migrate AMM Event
+/// RaydiumLaunchlab Migrate AMM Event
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkMigrateAmmEvent {
+pub struct RaydiumLaunchlabMigrateAmmEvent {
     pub metadata: EventMetadata,
     pub old_pool: Pubkey,
     pub new_pool: Pubkey,
@@ -119,8 +119,8 @@ pub struct BonkMigrateAmmEvent {
 /// PumpFun Trade Event - 基于官方IDL定义
 ///
 /// 字段来源标记:
-/// - [EVENT]: 来自原始IDL事件定义，由程序日志直接解析获得
-/// - [INSTRUCTION]: 来自指令解析，用于补充事件缺失的上下文信息
+/// - EVENT: 来自原始IDL事件定义，由程序日志直接解析获得
+/// - INSTRUCTION: 来自指令解析，用于补充事件缺失的上下文信息
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BorshDeserialize)]
 pub struct PumpFunTradeEvent {
     #[borsh(skip)]
@@ -740,7 +740,7 @@ pub struct PumpSwapPoolCreated {
     pub initial_token_b_amount: u64,
 }
 
-/// PumpSwap Trade Event - 指令解析版本
+// PumpSwap Trade Event - 指令解析版本
 // #[derive(Debug, Clone, Serialize, Deserialize)]
 // pub struct PumpSwapTrade {
 //     pub metadata: EventMetadata,
@@ -1454,14 +1454,14 @@ pub struct RaydiumAmmV4WithdrawPnlEvent {
 
 // ====================== Account Events ======================
 
-/// Bonk (Raydium Launchpad) AmmCreatorFeeOn enum
+/// RaydiumLaunchlab (Raydium LaunchLab) AmmCreatorFeeOn enum
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AmmCreatorFeeOn {
     QuoteToken = 0,
     BothToken = 1,
 }
 
-/// Bonk (Raydium Launchpad) VestingSchedule
+/// RaydiumLaunchlab (Raydium LaunchLab) VestingSchedule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VestingSchedule {
     pub total_locked_amount: u64,
@@ -1469,16 +1469,16 @@ pub struct VestingSchedule {
     pub unlock_period: u64,
 }
 
-/// Bonk Pool State Account Event
+/// RaydiumLaunchlab Pool State Account Event
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkPoolStateAccountEvent {
+pub struct RaydiumLaunchlabPoolStateAccountEvent {
     pub metadata: EventMetadata,
     pub pubkey: Pubkey,
-    pub pool_state: BonkPoolState,
+    pub pool_state: RaydiumLaunchlabPoolState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkPoolState {
+pub struct RaydiumLaunchlabPoolState {
     pub epoch: u64,
     pub auth_bump: u8,
     pub status: u8,
@@ -1510,30 +1510,30 @@ pub struct BonkPoolState {
     pub padding: [u8; 54],
 }
 
-/// Bonk Global Config Account Event
+/// RaydiumLaunchlab Global Config Account Event
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkGlobalConfigAccountEvent {
+pub struct RaydiumLaunchlabGlobalConfigAccountEvent {
     pub metadata: EventMetadata,
     pub pubkey: Pubkey,
-    pub global_config: BonkGlobalConfig,
+    pub global_config: RaydiumLaunchlabGlobalConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkGlobalConfig {
+pub struct RaydiumLaunchlabGlobalConfig {
     pub protocol_fee_rate: u64,
     pub trade_fee_rate: u64,
     pub migration_fee_rate: u64,
 }
 
-/// Bonk Platform Config Account Event
+/// RaydiumLaunchlab Platform Config Account Event
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkPlatformConfigAccountEvent {
+pub struct RaydiumLaunchlabPlatformConfigAccountEvent {
     pub metadata: EventMetadata,
     pub pubkey: Pubkey,
-    pub platform_config: BonkPlatformConfig,
+    pub platform_config: RaydiumLaunchlabPlatformConfig,
 }
 
-/// Bonk (Raydium Launchpad) BondingCurveParam
+/// RaydiumLaunchlab (Raydium LaunchLab) BondingCurveParam
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BondingCurveParam {
     pub migrate_type: u8,
@@ -1546,7 +1546,7 @@ pub struct BondingCurveParam {
     pub unlock_period: u64,
 }
 
-/// Bonk (Raydium Launchpad) PlatformCurveParam
+/// RaydiumLaunchlab (Raydium LaunchLab) PlatformCurveParam
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformCurveParam {
     pub epoch: u64,
@@ -1558,7 +1558,7 @@ pub struct PlatformCurveParam {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BonkPlatformConfig {
+pub struct RaydiumLaunchlabPlatformConfig {
     pub epoch: u64,
     pub platform_fee_wallet: Pubkey,
     pub platform_nft_wallet: Pubkey,
@@ -1993,6 +1993,127 @@ pub struct RaydiumCpmmPoolState {
     pub padding: [u64; 28],
 }
 
+// ====================== Orca Whirlpool Account Events ======================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaWhirlpoolAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub whirlpool: OrcaWhirlpoolAccount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaWhirlpoolAccount {
+    pub whirlpools_config: Pubkey,
+    pub whirlpool_bump: u8,
+    pub tick_spacing: u16,
+    pub tick_spacing_seed: [u8; 2],
+    pub fee_rate: u16,
+    pub protocol_fee_rate: u16,
+    pub liquidity: u128,
+    pub sqrt_price: u128,
+    pub tick_current_index: i32,
+    pub protocol_fee_owed_a: u64,
+    pub protocol_fee_owed_b: u64,
+    pub token_mint_a: Pubkey,
+    pub token_vault_a: Pubkey,
+    pub fee_growth_global_a: u128,
+    pub token_mint_b: Pubkey,
+    pub token_vault_b: Pubkey,
+    pub fee_growth_global_b: u128,
+    pub reward_last_updated_timestamp: u64,
+    pub reward_infos: [OrcaWhirlpoolRewardInfo; 3],
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct OrcaWhirlpoolRewardInfo {
+    pub mint: Pubkey,
+    pub vault: Pubkey,
+    pub authority: Pubkey,
+    pub emissions_per_second_x64: u128,
+    pub growth_global_x64: u128,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaPositionAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub position: OrcaPositionAccount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaPositionAccount {
+    pub whirlpool: Pubkey,
+    pub position_mint: Pubkey,
+    pub liquidity: u128,
+    pub tick_lower_index: i32,
+    pub tick_upper_index: i32,
+    pub fee_growth_checkpoint_a: u128,
+    pub fee_owed_a: u64,
+    pub fee_growth_checkpoint_b: u128,
+    pub fee_owed_b: u64,
+    pub reward_infos: [OrcaPositionRewardInfo; 3],
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct OrcaPositionRewardInfo {
+    pub growth_inside_checkpoint: u128,
+    pub amount_owed: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaTickArrayAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub tick_array: OrcaTickArrayAccount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaTickArrayAccount {
+    pub start_tick_index: i32,
+    pub ticks: Vec<OrcaTick>,
+    pub whirlpool: Pubkey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaTick {
+    pub initialized: bool,
+    pub liquidity_net: i128,
+    pub liquidity_gross: u128,
+    pub fee_growth_outside_a: u128,
+    pub fee_growth_outside_b: u128,
+    pub reward_growths_outside: [u128; 3],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaFeeTierAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub fee_tier: OrcaFeeTierAccount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaFeeTierAccount {
+    pub whirlpools_config: Pubkey,
+    pub tick_spacing: u16,
+    pub default_fee_rate: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaWhirlpoolsConfigAccountEvent {
+    pub metadata: EventMetadata,
+    pub pubkey: Pubkey,
+    pub config: OrcaWhirlpoolsConfigAccount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrcaWhirlpoolsConfigAccount {
+    pub fee_authority: Pubkey,
+    pub collect_protocol_fees_authority: Pubkey,
+    pub reward_emissions_super_authority: Pubkey,
+    pub default_protocol_fee_rate: u16,
+}
+
 /// Token Info Event
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TokenInfoEvent {
@@ -2308,6 +2429,34 @@ pub struct MeteoraDammV2RemoveLiquidityEvent {
     pub token_b_amount_threshold: u64,
 }
 
+/// Meteora DAMM V2 Initialize Pool Event
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MeteoraDammV2InitializePoolEvent {
+    pub metadata: EventMetadata,
+    pub pool: Pubkey,
+    pub token_a_mint: Pubkey,
+    pub token_b_mint: Pubkey,
+    pub creator: Pubkey,
+    pub payer: Pubkey,
+    pub position: Pubkey,
+    pub position_nft_mint: Pubkey,
+    pub alpha_vault: Pubkey,
+    pub sqrt_min_price: u128,
+    pub sqrt_max_price: u128,
+    pub activation_type: u8,
+    pub collect_fee_mode: u8,
+    pub liquidity: u128,
+    pub sqrt_price: u128,
+    pub activation_point: Option<u64>,
+    pub token_a_flag: u8,
+    pub token_b_flag: u8,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
+    pub total_amount_a: u64,
+    pub total_amount_b: u64,
+    pub pool_type: u8,
+}
+
 /// Meteora DAMM V2 Create Position Event
 #[cfg_attr(feature = "parse-borsh", derive(BorshDeserialize))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2334,6 +2483,49 @@ pub struct MeteoraDammV2ClosePositionEvent {
     pub owner: Pubkey,             // 32 bytes
     pub position: Pubkey,          // 32 bytes
     pub position_nft_mint: Pubkey, // 32 bytes
+}
+
+// ====================== Meteora DBC Events ======================
+
+/// Meteora DBC Swap Event (IDL `EvtSwap`)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MeteoraDbcSwapEvent {
+    pub metadata: EventMetadata,
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub amount_in: u64,
+    pub minimum_amount_out: u64,
+    pub actual_input_amount: u64,
+    pub output_amount: u64,
+    pub next_sqrt_price: u128,
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub current_timestamp: u64,
+}
+
+/// Meteora DBC Initialize Pool Event (IDL `EvtInitializePool`)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeteoraDbcInitializePoolEvent {
+    pub metadata: EventMetadata,
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub creator: Pubkey,
+    pub base_mint: Pubkey,
+    pub pool_type: u8,
+    pub activation_point: u64,
+}
+
+/// Meteora DBC Curve Complete Event (IDL `EvtCurveComplete`)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeteoraDbcCurveCompleteEvent {
+    pub metadata: EventMetadata,
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub base_reserve: u64,
+    pub quote_reserve: u64,
 }
 
 /// Meteora DLMM Swap Event

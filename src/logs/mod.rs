@@ -10,6 +10,7 @@
 pub mod discriminator_lut;
 pub mod meteora_amm;
 pub mod meteora_damm;
+pub mod meteora_dbc;
 pub mod meteora_dlmm;
 pub mod optimized_matcher;
 pub mod orca_whirlpool;
@@ -20,7 +21,7 @@ pub mod pump_fees;
 pub mod raydium_amm;
 pub mod raydium_clmm;
 pub mod raydium_cpmm;
-pub mod raydium_launchpad;
+pub mod raydium_launchlab;
 pub mod utils;
 pub mod zero_copy_parser;
 
@@ -35,6 +36,7 @@ pub use zero_copy_parser::parse_pumpfun_trade;
 // 重新导出主要解析函数
 pub use meteora_amm::parse_log as parse_meteora_amm_log;
 pub use meteora_damm::parse_log as parse_meteora_damm_log;
+pub use meteora_dbc::parse_log as parse_meteora_dbc_log;
 pub use meteora_dlmm::parse_log as parse_meteora_dlmm_log;
 pub use orca_whirlpool::parse_log as parse_orca_whirlpool_log;
 pub use pump::parse_log as parse_pumpfun_log;
@@ -42,7 +44,7 @@ pub use pump_amm::parse_log as parse_pump_amm_log;
 pub use raydium_amm::parse_log as parse_raydium_amm_log;
 pub use raydium_clmm::parse_log as parse_raydium_clmm_log;
 pub use raydium_cpmm::parse_log as parse_raydium_cpmm_log;
-pub use raydium_launchpad::parse_log as parse_raydium_launchpad_log;
+pub use raydium_launchlab::parse_log as parse_raydium_launchlab_log;
 
 // 重新导出工具函数
 pub use utils::*;

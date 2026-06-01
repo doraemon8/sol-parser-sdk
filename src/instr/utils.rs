@@ -195,8 +195,8 @@ pub fn get_instruction_account_getter<'a>(
     transaction: &'a Option<Transaction>,
     account_keys: Option<&'a Vec<Vec<u8>>>,
     // 地址表
-    loaded_writable_addresses: &'a Vec<Vec<u8>>,
-    loaded_readonly_addresses: &'a Vec<Vec<u8>>,
+    loaded_writable_addresses: &'a [Vec<u8>],
+    loaded_readonly_addresses: &'a [Vec<u8>],
     index: &(i32, i32), // (outer_index, inner_index)
 ) -> Option<impl Fn(usize) -> Pubkey + 'a> {
     // 1. 获取指令的账户索引数组
@@ -292,8 +292,8 @@ pub fn get_instruction_account_getter_indexed<'a>(
     inner_index: &InnerInstructionsIndex<'a>,
     transaction: &'a Option<Transaction>,
     account_keys: Option<&'a Vec<Vec<u8>>>,
-    loaded_writable_addresses: &'a Vec<Vec<u8>>,
-    loaded_readonly_addresses: &'a Vec<Vec<u8>>,
+    loaded_writable_addresses: &'a [Vec<u8>],
+    loaded_readonly_addresses: &'a [Vec<u8>],
     index: &(i32, i32),
 ) -> Option<impl Fn(usize) -> Pubkey + 'a> {
     let accounts = if index.1 >= 0 {

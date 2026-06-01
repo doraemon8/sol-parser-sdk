@@ -13,7 +13,7 @@ pub mod pump_fees;
 pub mod raydium_amm;
 pub mod raydium_clmm;
 pub mod raydium_cpmm;
-pub mod raydium_launchpad;
+pub mod raydium_launchlab;
 pub mod utils;
 
 // Inner instruction 解析器（16字节 discriminator）
@@ -27,7 +27,7 @@ use crate::grpc::types::EventTypeFilter;
 pub use meteora_damm::parse_instruction as parse_meteora_damm_instruction;
 pub use pump::parse_instruction as parse_pumpfun_instruction;
 pub use pump_amm::parse_instruction as parse_pumpswap_instruction;
-pub use raydium_launchpad::parse_instruction as parse_raydium_launchpad_instruction;
+pub use raydium_launchlab::parse_instruction as parse_raydium_launchlab_instruction;
 
 // 重新导出工具函数
 pub use utils::*;
@@ -140,13 +140,13 @@ pub fn parse_instruction_unified(
             event_type_filter,
         );
     }
-    // Bonk / Raydium Launchpad
-    else if *program_id == BONK_PROGRAM_ID {
-        if event_type_filter.is_some() && !event_type_filter.unwrap().includes_raydium_launchpad() {
+    // RaydiumLaunchlab / Raydium LaunchLab
+    else if *program_id == RAYDIUM_LAUNCHLAB_PROGRAM_ID {
+        if event_type_filter.is_some() && !event_type_filter.unwrap().includes_raydium_launchlab() {
             return None;
         }
         return filter_parsed_event(
-            parse_raydium_launchpad_instruction(
+            parse_raydium_launchlab_instruction(
                 instruction_data,
                 accounts,
                 signature,

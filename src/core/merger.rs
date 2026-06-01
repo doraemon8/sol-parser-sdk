@@ -133,6 +133,7 @@ pub fn merge_events(base: &mut DexEvent, inner: DexEvent) {
         (MeteoraDammV2Swap(b), MeteoraDammV2Swap(i)) => merge_generic(b, i),
         (MeteoraDammV2AddLiquidity(b), MeteoraDammV2AddLiquidity(i)) => merge_generic(b, i),
         (MeteoraDammV2RemoveLiquidity(b), MeteoraDammV2RemoveLiquidity(i)) => merge_generic(b, i),
+        (MeteoraDammV2InitializePool(b), MeteoraDammV2InitializePool(i)) => merge_generic(b, i),
         (MeteoraDammV2CreatePosition(b), MeteoraDammV2CreatePosition(i)) => merge_generic(b, i),
         (MeteoraDammV2ClosePosition(b), MeteoraDammV2ClosePosition(i)) => merge_generic(b, i),
 
@@ -146,10 +147,10 @@ pub fn merge_events(base: &mut DexEvent, inner: DexEvent) {
         (MeteoraDlmmClosePosition(b), MeteoraDlmmClosePosition(i)) => merge_generic(b, i),
         (MeteoraDlmmClaimFee(b), MeteoraDlmmClaimFee(i)) => merge_generic(b, i),
 
-        // ========== Bonk 系列 ==========
-        (BonkTrade(b), BonkTrade(i)) => merge_generic(b, i),
-        (BonkPoolCreate(b), BonkPoolCreate(i)) => merge_generic(b, i),
-        (BonkMigrateAmm(b), BonkMigrateAmm(i)) => merge_generic(b, i),
+        // ========== RaydiumLaunchlab 系列 ==========
+        (RaydiumLaunchlabTrade(b), RaydiumLaunchlabTrade(i)) => merge_generic(b, i),
+        (RaydiumLaunchlabPoolCreate(b), RaydiumLaunchlabPoolCreate(i)) => merge_generic(b, i),
+        (RaydiumLaunchlabMigrateAmm(b), RaydiumLaunchlabMigrateAmm(i)) => merge_generic(b, i),
 
         // 其他组合不需要合并（类型不匹配）
         _ => {}
@@ -767,7 +768,10 @@ fn merge_pumpswap_liquidity_removed_log_preferred(
 }
 
 #[inline]
-fn merge_bonk_pool_create_log_preferred(log: &mut BonkPoolCreateEvent, ix: BonkPoolCreateEvent) {
+fn merge_raydium_launchlab_pool_create_log_preferred(
+    log: &mut RaydiumLaunchlabPoolCreateEvent,
+    ix: RaydiumLaunchlabPoolCreateEvent,
+) {
     fill_pk(&mut log.creator, ix.creator);
     fill_str_if_empty(&mut log.base_mint_param.name, &ix.base_mint_param.name);
     fill_str_if_empty(&mut log.base_mint_param.symbol, &ix.base_mint_param.symbol);
@@ -775,15 +779,22 @@ fn merge_bonk_pool_create_log_preferred(log: &mut BonkPoolCreateEvent, ix: BonkP
 }
 
 #[inline]
-fn merge_bonk_migrate_amm_log_preferred(log: &mut BonkMigrateAmmEvent, ix: BonkMigrateAmmEvent) {
+fn merge_raydium_launchlab_migrate_amm_log_preferred(
+    log: &mut RaydiumLaunchlabMigrateAmmEvent,
+    ix: RaydiumLaunchlabMigrateAmmEvent,
+) {
     fill_pk(&mut log.old_pool, ix.old_pool);
     fill_pk(&mut log.new_pool, ix.new_pool);
     fill_pk(&mut log.user, ix.user);
 }
 
-/// BonkTrade 当前无独立「仅 ix 账户」字段；保留占位以便与 dedup 对齐，日后扩展。
+/// RaydiumLaunchlabTrade 当前无独立「仅 ix 账户」字段；保留占位以便与 dedup 对齐，日后扩展。
 #[inline]
-fn merge_bonk_trade_log_preferred(_log: &mut BonkTradeEvent, _ix: BonkTradeEvent) {}
+fn merge_raydium_launchlab_trade_log_preferred(
+    _log: &mut RaydiumLaunchlabTradeEvent,
+    _ix: RaydiumLaunchlabTradeEvent,
+) {
+}
 
 #[inline]
 fn merge_meteora_dlmm_swap_log_preferred(
@@ -796,7 +807,7 @@ fn merge_meteora_dlmm_swap_log_preferred(
 /// `ix` 仅填补 `log` 中为默认值的账户等字段。**不替换** `log` 外层枚举变体。
 ///
 /// 已覆盖与 [`crate::grpc::log_instr_dedup`] 去重键一致的主要类型：PumpFun 全系、PumpSwap
-///（Trade/Buy/Sell/CreatePool/加减流动性）、Bonk（Trade/PoolCreate/Migrate）、Raydium CLMM/AMM V4 Swap、Meteora DLMM Swap。
+///（Trade/Buy/Sell/CreatePool/加减流动性）、RaydiumLaunchlab（Trade/PoolCreate/Migrate）、Raydium CLMM/AMM V4 Swap、Meteora DLMM Swap。
 pub fn merge_grpc_instruction_into_log(log: &mut DexEvent, ix: DexEvent) {
     use DexEvent::*;
     match log {
@@ -860,19 +871,19 @@ pub fn merge_grpc_instruction_into_log(log: &mut DexEvent, ix: DexEvent) {
                 merge_raydium_amm_v4_swap_log_preferred(l, i);
             }
         }
-        BonkTrade(l) => {
-            if let BonkTrade(i) = ix {
-                merge_bonk_trade_log_preferred(l, i);
+        RaydiumLaunchlabTrade(l) => {
+            if let RaydiumLaunchlabTrade(i) = ix {
+                merge_raydium_launchlab_trade_log_preferred(l, i);
             }
         }
-        BonkPoolCreate(l) => {
-            if let BonkPoolCreate(i) = ix {
-                merge_bonk_pool_create_log_preferred(l, i);
+        RaydiumLaunchlabPoolCreate(l) => {
+            if let RaydiumLaunchlabPoolCreate(i) = ix {
+                merge_raydium_launchlab_pool_create_log_preferred(l, i);
             }
         }
-        BonkMigrateAmm(l) => {
-            if let BonkMigrateAmm(i) = ix {
-                merge_bonk_migrate_amm_log_preferred(l, i);
+        RaydiumLaunchlabMigrateAmm(l) => {
+            if let RaydiumLaunchlabMigrateAmm(i) = ix {
+                merge_raydium_launchlab_migrate_amm_log_preferred(l, i);
             }
         }
         PumpSwapCreatePool(l) => {

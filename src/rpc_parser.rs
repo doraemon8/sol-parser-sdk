@@ -363,7 +363,7 @@ pub fn convert_rpc_to_grpc(
                         program_id_index: compiled.program_id_index as u32,
                         accounts: compiled.accounts.clone(),
                         data,
-                        stack_height: compiled.stack_height.map(|h| h as u32),
+                        stack_height: compiled.stack_height,
                     });
                 }
             }

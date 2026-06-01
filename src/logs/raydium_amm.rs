@@ -256,7 +256,7 @@ pub fn parse_initialize2_from_data(data: &[u8], metadata: EventMetadata) -> Opti
     let user = read_pubkey(data, offset)?;
     offset += 32;
 
-    let nonce = data.get(offset)?.clone();
+    let nonce = *data.get(offset)?;
     offset += 1;
 
     let open_time = read_u64_le(data, offset)?;
@@ -550,7 +550,7 @@ fn parse_initialize2_event(
     let user = read_pubkey(data, offset)?;
     offset += 32;
 
-    let nonce = data.get(offset)?.clone();
+    let nonce = *data.get(offset)?;
     offset += 1;
 
     let open_time = read_u64_le(data, offset)?;

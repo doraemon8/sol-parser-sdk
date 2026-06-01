@@ -17,21 +17,21 @@ pub mod discriminators {
 
 #[inline]
 pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    match disc {
-        &discriminators::SWAP => crate::logs::meteora_amm::parse_swap_from_data(data, metadata),
-        &discriminators::ADD_LIQUIDITY => {
+    match *disc {
+        discriminators::SWAP => crate::logs::meteora_amm::parse_swap_from_data(data, metadata),
+        discriminators::ADD_LIQUIDITY => {
             crate::logs::meteora_amm::parse_add_liquidity_from_data(data, metadata)
         }
-        &discriminators::REMOVE_LIQUIDITY => {
+        discriminators::REMOVE_LIQUIDITY => {
             crate::logs::meteora_amm::parse_remove_liquidity_from_data(data, metadata)
         }
-        &discriminators::BOOTSTRAP_LIQUIDITY => {
+        discriminators::BOOTSTRAP_LIQUIDITY => {
             crate::logs::meteora_amm::parse_bootstrap_liquidity_from_data(data, metadata)
         }
-        &discriminators::POOL_CREATED => {
+        discriminators::POOL_CREATED => {
             crate::logs::meteora_amm::parse_pool_created_from_data(data, metadata)
         }
-        &discriminators::SET_POOL_FEES => {
+        discriminators::SET_POOL_FEES => {
             crate::logs::meteora_amm::parse_set_pool_fees_from_data(data, metadata)
         }
         _ => None,

@@ -1,7 +1,9 @@
 pub mod nonce;
+pub mod orca_whirlpool;
 pub mod program_ids;
 pub mod pumpswap;
 pub mod raydium_clmm;
+pub mod raydium_cpmm;
 pub mod rpc_wallet;
 pub mod token;
 pub mod utils;
@@ -17,6 +19,19 @@ pub use rpc_wallet::rpc_resolve_user_wallet_pubkey;
 pub use token::parse_token_account;
 pub use token::AccountData;
 pub use utils::*;
+
+#[inline(always)]
+fn filter_parsed_event(
+    event: Option<DexEvent>,
+    event_type_filter: Option<&EventTypeFilter>,
+) -> Option<DexEvent> {
+    let event = event?;
+    if event_type_filter.map(|f| f.should_include_dex_event(&event)).unwrap_or(true) {
+        Some(event)
+    } else {
+        None
+    }
+}
 
 pub fn parse_account_unified(
     account: &AccountData,
@@ -36,6 +51,7 @@ pub fn parse_account_unified(
                 matches!(
                     t,
                     EventType::TokenAccount
+                        | EventType::TokenInfo
                         | EventType::NonceAccount
                         | EventType::AccountPumpFunGlobal
                         | EventType::AccountPumpFunBondingCurve
@@ -48,6 +64,13 @@ pub fn parse_account_unified(
                         | EventType::AccountRaydiumClmmAmmConfig
                         | EventType::AccountRaydiumClmmPoolState
                         | EventType::AccountRaydiumClmmTickArrayState
+                        | EventType::AccountRaydiumCpmmAmmConfig
+                        | EventType::AccountRaydiumCpmmPoolState
+                        | EventType::AccountOrcaWhirlpool
+                        | EventType::AccountOrcaPosition
+                        | EventType::AccountOrcaTickArray
+                        | EventType::AccountOrcaFeeTier
+                        | EventType::AccountOrcaWhirlpoolsConfig
                 )
             });
             if !should_parse {
@@ -57,34 +80,77 @@ pub fn parse_account_unified(
     }
 
     if account.owner == PUMPSWAP_PROGRAM_ID {
-        let should_parse = event_type_filter.map_or(true, |filter| {
+        let should_parse = event_type_filter.is_none_or(|filter| {
             filter.should_include(crate::grpc::EventType::AccountPumpSwapGlobalConfig)
                 || filter.should_include(crate::grpc::EventType::AccountPumpSwapPool)
         });
         if should_parse {
-            let event = parse_pumpswap_account(account, metadata.clone());
+            let event = filter_parsed_event(
+                parse_pumpswap_account(account, metadata.clone()),
+                event_type_filter,
+            );
             if event.is_some() {
                 return event;
             }
         }
+        return None;
     }
     if account.owner == crate::instr::program_ids::RAYDIUM_CLMM_PROGRAM_ID {
-        let should_parse = event_type_filter.map_or(true, |filter| {
+        let should_parse = event_type_filter.is_none_or(|filter| {
             filter.should_include(crate::grpc::EventType::AccountRaydiumClmmAmmConfig)
                 || filter.should_include(crate::grpc::EventType::AccountRaydiumClmmPoolState)
                 || filter.should_include(crate::grpc::EventType::AccountRaydiumClmmTickArrayState)
         });
         if should_parse {
-            let event = raydium_clmm::parse_account(account, metadata.clone());
+            let event = filter_parsed_event(
+                raydium_clmm::parse_account(account, metadata.clone()),
+                event_type_filter,
+            );
             if event.is_some() {
                 return event;
             }
         }
+        return None;
+    }
+    if account.owner == crate::instr::program_ids::RAYDIUM_CPMM_PROGRAM_ID {
+        let should_parse = event_type_filter.is_none_or(|filter| {
+            filter.should_include(crate::grpc::EventType::AccountRaydiumCpmmAmmConfig)
+                || filter.should_include(crate::grpc::EventType::AccountRaydiumCpmmPoolState)
+        });
+        if should_parse {
+            let event = filter_parsed_event(
+                raydium_cpmm::parse_account(account, metadata.clone()),
+                event_type_filter,
+            );
+            if event.is_some() {
+                return event;
+            }
+        }
+        return None;
+    }
+    if account.owner == crate::instr::program_ids::ORCA_WHIRLPOOL_PROGRAM_ID {
+        let should_parse = event_type_filter.is_none_or(|filter| {
+            filter.should_include(crate::grpc::EventType::AccountOrcaWhirlpool)
+                || filter.should_include(crate::grpc::EventType::AccountOrcaPosition)
+                || filter.should_include(crate::grpc::EventType::AccountOrcaTickArray)
+                || filter.should_include(crate::grpc::EventType::AccountOrcaFeeTier)
+                || filter.should_include(crate::grpc::EventType::AccountOrcaWhirlpoolsConfig)
+        });
+        if should_parse {
+            let event = filter_parsed_event(
+                orca_whirlpool::parse_account(account, metadata.clone()),
+                event_type_filter,
+            );
+            if event.is_some() {
+                return event;
+            }
+        }
+        return None;
     }
     if account.owner == crate::grpc::program_ids::PUMPFUN_PROGRAM
         || account.owner == crate::instr::program_ids::PUMP_FEES_PROGRAM_ID
     {
-        let should_parse = event_type_filter.map_or(true, |filter| {
+        let should_parse = event_type_filter.is_none_or(|filter| {
             filter.should_include(crate::grpc::EventType::AccountPumpFunGlobal)
                 || filter.should_include(crate::grpc::EventType::AccountPumpFunBondingCurve)
                 || filter.should_include(crate::grpc::EventType::AccountPumpFunFeeConfig)
@@ -95,11 +161,15 @@ pub fn parse_account_unified(
                     .should_include(crate::grpc::EventType::AccountPumpFunUserVolumeAccumulator)
         });
         if should_parse {
-            let event = parse_pumpfun_account(account, metadata.clone());
+            let event = filter_parsed_event(
+                parse_pumpfun_account(account, metadata.clone()),
+                event_type_filter,
+            );
             if event.is_some() {
                 return event;
             }
         }
+        return None;
     }
     if nonce::is_nonce_account(&account.data) {
         // Check filter for NonceAccount specifically
@@ -112,12 +182,13 @@ pub fn parse_account_unified(
     }
     // Parse token account (includes both TokenAccount and TokenInfo)
     if let Some(filter) = event_type_filter {
-        let includes_token = filter.should_include(crate::grpc::EventType::TokenAccount);
+        let includes_token = filter.should_include(crate::grpc::EventType::TokenAccount)
+            || filter.should_include(crate::grpc::EventType::TokenInfo);
         if !includes_token {
             return None;
         }
     }
-    return parse_token_account(account, metadata);
+    filter_parsed_event(parse_token_account(account, metadata), event_type_filter)
 }
 
 fn parse_pumpswap_account(account: &AccountData, metadata: EventMetadata) -> Option<DexEvent> {
@@ -407,8 +478,8 @@ fn parse_pumpfun_account(account: &AccountData, metadata: EventMetadata) -> Opti
     let creator_fee_basis_points = read_u64_le(data, offset)?;
     offset += 8;
     let mut fee_recipients = [solana_sdk::pubkey::Pubkey::default(); 7];
-    for i in 0..7 {
-        fee_recipients[i] = read_pubkey(data, offset)?;
+    for fee_recipient in &mut fee_recipients {
+        *fee_recipient = read_pubkey(data, offset)?;
         offset += 32;
     }
     let set_creator_authority = read_pubkey(data, offset)?;
@@ -424,16 +495,16 @@ fn parse_pumpfun_account(account: &AccountData, metadata: EventMetadata) -> Opti
     let mayhem_mode_enabled = read_u8(data, offset)? != 0;
     offset += 1;
     let mut reserved_fee_recipients = [solana_sdk::pubkey::Pubkey::default(); 7];
-    for i in 0..7 {
-        reserved_fee_recipients[i] = read_pubkey(data, offset)?;
+    for reserved_fee_recipient in &mut reserved_fee_recipients {
+        *reserved_fee_recipient = read_pubkey(data, offset)?;
         offset += 32;
     }
     let is_cashback_enabled = read_u8(data, offset)? != 0;
     offset += 1;
     let buyback_fee_recipients = {
         let mut keys = [solana_sdk::pubkey::Pubkey::default(); 8];
-        for i in 0..8 {
-            keys[i] = read_pubkey(data, offset)?;
+        for key in &mut keys {
+            *key = read_pubkey(data, offset)?;
             offset += 32;
         }
         keys
@@ -544,5 +615,107 @@ mod tests {
             }
             other => panic!("expected bonding curve account, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn parse_unified_routes_cpmm_and_orca_account_filters() {
+        let mut cpmm = Vec::with_capacity(8 + raydium_cpmm::AMM_CONFIG_SIZE);
+        cpmm.extend_from_slice(raydium_cpmm::discriminators::AMM_CONFIG);
+        cpmm.push(1);
+        cpmm.push(0);
+        cpmm.extend_from_slice(&42u16.to_le_bytes());
+        for value in [10u64, 20, 30, 40] {
+            cpmm.extend_from_slice(&value.to_le_bytes());
+        }
+        push_pk(&mut cpmm, 1);
+        push_pk(&mut cpmm, 2);
+        cpmm.extend_from_slice(&50u64.to_le_bytes());
+        for value in 0u64..15 {
+            cpmm.extend_from_slice(&value.to_le_bytes());
+        }
+        let cpmm_account = AccountData {
+            pubkey: Pubkey::new_unique(),
+            executable: false,
+            lamports: 0,
+            owner: crate::instr::program_ids::RAYDIUM_CPMM_PROGRAM_ID,
+            rent_epoch: 0,
+            data: cpmm,
+        };
+        let cpmm_filter =
+            EventTypeFilter::include_only(vec![EventType::AccountRaydiumCpmmAmmConfig]);
+        assert!(matches!(
+            parse_account_unified(&cpmm_account, metadata(), Some(&cpmm_filter)),
+            Some(DexEvent::RaydiumCpmmAmmConfigAccount(_))
+        ));
+        let cpmm_mismatch_filter =
+            EventTypeFilter::include_only(vec![EventType::AccountRaydiumCpmmPoolState]);
+        assert!(
+            parse_account_unified(&cpmm_account, metadata(), Some(&cpmm_mismatch_filter)).is_none()
+        );
+
+        let mut fee_tier = Vec::with_capacity(8 + orca_whirlpool::FEE_TIER_SIZE);
+        fee_tier.extend_from_slice(orca_whirlpool::discriminators::FEE_TIER);
+        push_pk(&mut fee_tier, 3);
+        fee_tier.extend_from_slice(&64u16.to_le_bytes());
+        fee_tier.extend_from_slice(&300u16.to_le_bytes());
+        let orca_account = AccountData {
+            pubkey: Pubkey::new_unique(),
+            executable: false,
+            lamports: 0,
+            owner: crate::instr::program_ids::ORCA_WHIRLPOOL_PROGRAM_ID,
+            rent_epoch: 0,
+            data: fee_tier,
+        };
+        let orca_filter = EventTypeFilter::include_only(vec![EventType::AccountOrcaFeeTier]);
+        assert!(matches!(
+            parse_account_unified(&orca_account, metadata(), Some(&orca_filter)),
+            Some(DexEvent::OrcaFeeTierAccount(_))
+        ));
+        let orca_exclude_filter =
+            EventTypeFilter::exclude_types(vec![EventType::AccountOrcaFeeTier]);
+        assert!(
+            parse_account_unified(&orca_account, metadata(), Some(&orca_exclude_filter)).is_none()
+        );
+    }
+
+    #[test]
+    fn parse_unified_filters_token_info_and_token_account_separately() {
+        let mut data = vec![0u8; 82];
+        data[36..44].copy_from_slice(&1_000_000u64.to_le_bytes());
+        data[44] = 6;
+        let account = AccountData {
+            pubkey: Pubkey::new_unique(),
+            executable: false,
+            lamports: 0,
+            owner: Pubkey::new_from_array(spl_token::ID.to_bytes()),
+            rent_epoch: 0,
+            data,
+        };
+
+        let token_info_filter = EventTypeFilter::include_only(vec![EventType::TokenInfo]);
+        assert!(matches!(
+            parse_account_unified(&account, metadata(), Some(&token_info_filter)),
+            Some(DexEvent::TokenInfo(_))
+        ));
+
+        let token_account_filter = EventTypeFilter::include_only(vec![EventType::TokenAccount]);
+        assert!(parse_account_unified(&account, metadata(), Some(&token_account_filter)).is_none());
+    }
+
+    #[test]
+    fn parse_unified_known_dex_owner_does_not_fall_through_to_token_parser() {
+        let mut data = vec![0u8; 82];
+        data[36..44].copy_from_slice(&1_000_000u64.to_le_bytes());
+        data[44] = 6;
+        let account = AccountData {
+            pubkey: Pubkey::new_unique(),
+            executable: false,
+            lamports: 0,
+            owner: crate::grpc::program_ids::PUMPFUN_PROGRAM,
+            rent_epoch: 0,
+            data,
+        };
+
+        assert!(parse_account_unified(&account, metadata(), None).is_none());
     }
 }
