@@ -616,6 +616,7 @@ fn parse_create_instruction(
         bonding_curve,
         user,
         creator,
+        quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
         ..Default::default()
     }))
 }
@@ -703,6 +704,7 @@ fn parse_create_v2_instruction(
         program: acc[15],
         is_mayhem_mode,
         is_cashback_enabled,
+        quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
         ..Default::default()
     }))
 }
@@ -821,6 +823,7 @@ mod tests {
                 assert_eq!(c.program, acc[15]);
                 assert!(c.is_mayhem_mode);
                 assert!(c.is_cashback_enabled);
+                assert_eq!(c.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
             }
             other => panic!("expected canonical PumpFunCreate, got {other:?}"),
         }
