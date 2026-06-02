@@ -869,6 +869,7 @@ fn parse_create_instruction(
         creator,
         token_program: get_account(9).unwrap_or_default(),
         quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+        ix_name: "create".to_string(),
         ..Default::default()
     }))
 }
@@ -958,6 +959,7 @@ fn parse_create_v2_instruction(
         is_mayhem_mode,
         is_cashback_enabled,
         quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+        ix_name: "create_v2".to_string(),
         ..Default::default()
     }))
 }
@@ -1672,6 +1674,7 @@ mod tests {
                 assert_eq!(event.user, Pubkey::default());
                 assert_eq!(event.token_program, Pubkey::default());
                 assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+                assert_eq!(event.ix_name, "create");
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }
@@ -1708,6 +1711,7 @@ mod tests {
                 assert_eq!(event.user, user);
                 assert_eq!(event.token_program, token_program);
                 assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+                assert_eq!(event.ix_name, "create");
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }

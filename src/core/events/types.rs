@@ -450,6 +450,9 @@ pub struct PumpFunCreateTokenEvent {
     /// Initial virtual quote reserves. For SOL pools this is the SOL-side reserve;
     /// for USDC pools this is the USDC-side reserve.
     pub virtual_quote_reserves: u64,
+    /// Original PumpFun instruction name: `"create"` or `"create_v2"`.
+    #[borsh(skip)]
+    pub ix_name: String,
     #[borsh(skip)]
     pub mint_authority: Pubkey,
     #[borsh(skip)]
@@ -504,6 +507,9 @@ pub struct PumpFunCreateV2TokenEvent {
     pub quote_mint: Pubkey,
     #[borsh(skip)]
     pub virtual_quote_reserves: u64,
+    /// Original PumpFun instruction name: `"create"` or `"create_v2"`.
+    #[borsh(skip)]
+    pub ix_name: String,
     #[borsh(skip)]
     pub mint_authority: Pubkey,
     #[borsh(skip)]
