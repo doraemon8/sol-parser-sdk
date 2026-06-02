@@ -12,6 +12,7 @@
 //! - tx_index 是 entry 内索引而非 slot 内索引
 
 use sol_parser_sdk::core::now_micros;
+use sol_parser_sdk::grpc::{EventType, EventTypeFilter};
 use sol_parser_sdk::shredstream::{ShredStreamClient, ShredStreamConfig};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -58,6 +59,7 @@ async fn run_example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("📋 Configuration:");
     println!("   Endpoint: http://127.0.0.1:10800");
     println!("   Reconnect: infinite");
+    println!("   Event Filter: PumpFunTrade");
     println!();
 
     // 创建客户端
@@ -66,8 +68,10 @@ async fn run_example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("✅ ShredStream client connected");
     println!("🎧 Starting subscription...\n");
 
-    // 订阅并获取事件队列
-    let queue = client.subscribe().await?;
+    // ShredStream proxy 不能像 Yellowstone gRPC 一样下发服务端交易账户过滤。
+    // SDK 这里使用本地热路径事件过滤：只订阅 PumpFunTrade 时，队列里只会收到 DexEvent::PumpFunTrade。
+    let event_filter = EventTypeFilter::include_only(vec![EventType::PumpFunTrade]);
+    let queue = client.subscribe_with_filter(Some(event_filter)).await?;
 
     // 性能统计
     let event_count = Arc::new(AtomicU64::new(0));

@@ -8,6 +8,7 @@
 //! cargo run --example shredstream_pump_snipe -- --endpoint http://127.0.0.1:10800
 
 use sol_parser_sdk::core::now_micros;
+use sol_parser_sdk::grpc::{EventType, EventTypeFilter};
 use sol_parser_sdk::shredstream::{ShredStreamClient, ShredStreamConfig};
 use sol_parser_sdk::DexEvent;
 use std::collections::HashSet;
@@ -68,7 +69,7 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
 
     println!("📋 Configuration:");
     println!("   Endpoint: {}", endpoint);
-    println!("   Target: PumpFun CREATE + is_created_buy events");
+    println!("   Target: PumpFun CREATE/CREATE_V2 + PumpFunTrade events");
     println!();
 
     // 创建客户端
@@ -77,8 +78,14 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
     println!("✅ ShredStream client connected");
     println!("🎧 Listening for PumpFun token creation and first buy...\n");
 
-    // 订阅并获取事件队列
-    let queue = client.subscribe().await?;
+    // ShredStream 使用本地热路径事件过滤。
+    // 只订阅 PumpFunTrade 时，买/卖/精确 SOL 买入会统一回调为 DexEvent::PumpFunTrade。
+    let event_filter = EventTypeFilter::include_only(vec![
+        EventType::PumpFunCreate,
+        EventType::PumpFunCreateV2,
+        EventType::PumpFunTrade,
+    ]);
+    let queue = client.subscribe_with_filter(Some(event_filter)).await?;
 
     // 用于追踪已创建的代币（检测同交易买入）
     let created_tokens: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
