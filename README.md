@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.5"
+sol-parser-sdk = "0.5.8"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.5", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.8", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.8
+
+- Adds configurable ShredStream event filter examples, including Pump.fun trade, create-trade, buy, sell, and buy-exact-sol-in presets.
+- Clarifies Pump.fun IDL instruction names in `ix_name`: `buy`, `buy_v2`, `buy_exact_sol_in`, `buy_exact_quote_in_v2`, `sell`, and `sell_v2`.
+- Keeps Pump.fun filter families aligned with IDL semantics: `PumpFunBuy` covers all buy instructions, `PumpFunSell` covers all sell instructions, and `PumpFunTrade` covers all buy and sell instructions.
+- Ensures subscribing only to `PumpFunTrade` emits unified `DexEvent::PumpFunTrade` events on the ShredStream hot path.
 
 #### v0.5.5
 

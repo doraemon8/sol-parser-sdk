@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.5"
+sol-parser-sdk = "0.5.8"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.5", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.8", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
+
+#### v0.5.8
+
+- ShredStream 示例增加可配置事件过滤 preset，包括 Pump.fun trade、create-trade、buy、sell、buy-exact-sol-in。
+- 明确 Pump.fun `ix_name` 使用 IDL 原始 instruction name：`buy`、`buy_v2`、`buy_exact_sol_in`、`buy_exact_quote_in_v2`、`sell`、`sell_v2`。
+- Pump.fun 过滤大类与 IDL 语义保持一致：`PumpFunBuy` 覆盖所有 buy 指令，`PumpFunSell` 覆盖所有 sell 指令，`PumpFunTrade` 覆盖所有 buy 和 sell 指令。
+- 只订阅 `PumpFunTrade` 时，ShredStream 热路径统一输出 `DexEvent::PumpFunTrade`。
 
 #### v0.5.5
 
