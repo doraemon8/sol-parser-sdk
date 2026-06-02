@@ -1767,6 +1767,37 @@ mod tests {
     }
 
     #[test]
+    fn shred_pumpfun_sell_filter_covers_sell_v2() {
+        let static_keys = vec![PROGRAM_ID_PUBKEY; 26];
+        let filter =
+            EventTypeFilter::include_only(vec![crate::grpc::types::EventType::PumpFunSell]);
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&discriminators::SELL_V2);
+        data.extend_from_slice(&100_u64.to_le_bytes());
+        data.extend_from_slice(&200_u64.to_le_bytes());
+        let mut events = Vec::new();
+
+        dispatch_shred_outer(
+            0,
+            &ix_accounts(26),
+            &data,
+            &static_keys,
+            Signature::default(),
+            123,
+            0,
+            456,
+            Some(&filter),
+            &PumpMintSet::new(),
+            &PumpMintSet::new(),
+            &mut events,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], DexEvent::PumpFunSell(_)));
+    }
+
+    #[test]
     fn unknown_program_outer_uses_filter_to_parse_matching_protocol() {
         let static_keys = vec![RAYDIUM_CPMM_PROGRAM_ID, Pubkey::new_unique()];
         let ix_accounts = vec![1, 42];
@@ -1862,6 +1893,30 @@ mod tests {
             0,
             &ix_accounts(27),
             &exact_data,
+            &static_keys,
+            Signature::default(),
+            123,
+            0,
+            456,
+            Some(&filter),
+            &PumpMintSet::new(),
+            &PumpMintSet::new(),
+            &mut events,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], DexEvent::PumpFunBuy(_)));
+
+        let mut exact_quote_data = Vec::new();
+        exact_quote_data.extend_from_slice(&discriminators::BUY_EXACT_QUOTE_IN_V2);
+        exact_quote_data.extend_from_slice(&100_u64.to_le_bytes());
+        exact_quote_data.extend_from_slice(&200_u64.to_le_bytes());
+        events.clear();
+
+        dispatch_shred_outer(
+            0,
+            &ix_accounts(27),
+            &exact_quote_data,
             &static_keys,
             Signature::default(),
             123,

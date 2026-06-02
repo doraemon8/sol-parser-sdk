@@ -244,12 +244,13 @@ fn build_event_filter(
                 EventType::PumpFunTrade,
             ]),
         ),
-        // 订阅买入大类：普通 buy / buy_exact_sol_in 都统一输出 DexEvent::PumpFunBuy。
+        // 订阅买入大类：buy / buy_v2 / buy_exact_sol_in / buy_exact_quote_in_v2
+        // 都统一输出 DexEvent::PumpFunBuy。
         "buy" => (
             "PumpFunBuy family -> DexEvent::PumpFunBuy",
             EventTypeFilter::include_only(vec![EventType::PumpFunBuy]),
         ),
-        // 只订阅具体卖出事件：输出 DexEvent::PumpFunSell。
+        // 订阅卖出大类：sell / sell_v2 都统一输出 DexEvent::PumpFunSell。
         "sell" => (
             "PumpFunSell only -> DexEvent::PumpFunSell",
             EventTypeFilter::include_only(vec![EventType::PumpFunSell]),
@@ -298,8 +299,10 @@ fn print_usage() {
     println!("Filter presets:");
     println!("  trade                 PumpFunTrade only, outputs DexEvent::PumpFunTrade");
     println!("  create-trade          PumpFunCreate/PumpFunCreateV2 + unified PumpFunTrade");
-    println!("  buy                   All PumpFun buy variants, outputs DexEvent::PumpFunBuy");
-    println!("  sell                  PumpFunSell only");
+    println!(
+        "  buy                   buy/buy_v2/buy_exact_sol_in/buy_exact_quote_in_v2 -> DexEvent::PumpFunBuy"
+    );
+    println!("  sell                  sell/sell_v2 -> DexEvent::PumpFunSell");
     println!("  buy-exact-sol-in      PumpFunBuyExactSolIn only");
     println!("  buy-sell              All PumpFun buy variants + PumpFunSell");
     println!("  pumpfun               Common PumpFun create/trade/migrate events");
