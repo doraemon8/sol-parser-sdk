@@ -1824,7 +1824,7 @@ mod tests {
     }
 
     #[test]
-    fn shred_pumpfun_buy_filter_keeps_buy_variant_only() {
+    fn shred_pumpfun_buy_filter_normalizes_all_buy_variants_to_buy() {
         let static_keys = vec![PROGRAM_ID_PUBKEY; 27];
         let filter = EventTypeFilter::include_only(vec![crate::grpc::types::EventType::PumpFunBuy]);
 
@@ -1873,7 +1873,8 @@ mod tests {
             &mut events,
         );
 
-        assert!(events.is_empty());
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], DexEvent::PumpFunBuy(_)));
     }
 
     #[test]
