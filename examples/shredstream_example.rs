@@ -14,6 +14,7 @@
 use sol_parser_sdk::core::now_micros;
 use sol_parser_sdk::grpc::{EventType, EventTypeFilter};
 use sol_parser_sdk::shredstream::{ShredStreamClient, ShredStreamConfig};
+use std::env;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -43,10 +44,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🚀 ShredStream Low-Latency Test");
     println!("================================\n");
 
-    run_example().await
+    let args: Vec<String> = env::args().collect();
+    let mut endpoint = "http://127.0.0.1:10800".to_string();
+    let mut filter_name = "trade".to_string();
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--endpoint" | "-e" => {
+                if i + 1 >= args.len() {
+                    eprintln!("Error: --endpoint requires a value");
+                    std::process::exit(1);
+                }
+                endpoint = args[i + 1].clone();
+                i += 2;
+            }
+            "--filter" | "-f" => {
+                if i + 1 >= args.len() {
+                    eprintln!("Error: --filter requires a value");
+                    print_usage();
+                    std::process::exit(1);
+                }
+                filter_name = args[i + 1].clone();
+                i += 2;
+            }
+            "--help" | "-h" => {
+                print_usage();
+                std::process::exit(0);
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+
+    run_example(&endpoint, &filter_name).await
 }
 
-async fn run_example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn run_example(
+    endpoint: &str,
+    filter_name: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // 配置
     let config = ShredStreamConfig {
         connection_timeout_ms: 5000,
@@ -56,21 +94,22 @@ async fn run_example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         max_reconnect_attempts: 0, // 0 = 无限重连
     };
 
+    let (filter_label, event_filter) = build_event_filter(filter_name)?;
+
     println!("📋 Configuration:");
-    println!("   Endpoint: http://127.0.0.1:10800");
+    println!("   Endpoint: {}", endpoint);
     println!("   Reconnect: infinite");
-    println!("   Event Filter: PumpFunTrade");
+    println!("   Event Filter: {}", filter_label);
     println!();
 
     // 创建客户端
-    let client = ShredStreamClient::new_with_config("http://127.0.0.1:10800", config).await?;
+    let client = ShredStreamClient::new_with_config(endpoint, config).await?;
 
     println!("✅ ShredStream client connected");
     println!("🎧 Starting subscription...\n");
 
     // ShredStream proxy 不能像 Yellowstone gRPC 一样下发服务端交易账户过滤。
     // SDK 这里使用本地热路径事件过滤：只订阅 PumpFunTrade 时，队列里只会收到 DexEvent::PumpFunTrade。
-    let event_filter = EventTypeFilter::include_only(vec![EventType::PumpFunTrade]);
     let queue = client.subscribe_with_filter(Some(event_filter)).await?;
 
     // 性能统计
@@ -185,4 +224,88 @@ async fn run_example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     client.stop().await;
     Ok(())
+}
+
+fn build_event_filter(
+    name: &str,
+) -> Result<(&'static str, EventTypeFilter), Box<dyn std::error::Error + Send + Sync>> {
+    let filter = match name {
+        // 只订阅统一交易事件：买/卖/精确 SOL 买入都会统一输出为 DexEvent::PumpFunTrade。
+        "trade" => (
+            "PumpFunTrade only -> DexEvent::PumpFunTrade",
+            EventTypeFilter::include_only(vec![EventType::PumpFunTrade]),
+        ),
+        // 创建 + 统一交易，适合发射/首买监听。
+        "create-trade" => (
+            "PumpFunCreate + PumpFunCreateV2 + PumpFunTrade",
+            EventTypeFilter::include_only(vec![
+                EventType::PumpFunCreate,
+                EventType::PumpFunCreateV2,
+                EventType::PumpFunTrade,
+            ]),
+        ),
+        // 只订阅具体买入事件：输出 DexEvent::PumpFunBuy。
+        "buy" => (
+            "PumpFunBuy only -> DexEvent::PumpFunBuy",
+            EventTypeFilter::include_only(vec![EventType::PumpFunBuy]),
+        ),
+        // 只订阅具体卖出事件：输出 DexEvent::PumpFunSell。
+        "sell" => (
+            "PumpFunSell only -> DexEvent::PumpFunSell",
+            EventTypeFilter::include_only(vec![EventType::PumpFunSell]),
+        ),
+        // 只订阅精确 SOL 输入买入：输出 DexEvent::PumpFunBuyExactSolIn。
+        "buy-exact-sol-in" => (
+            "PumpFunBuyExactSolIn only -> DexEvent::PumpFunBuyExactSolIn",
+            EventTypeFilter::include_only(vec![EventType::PumpFunBuyExactSolIn]),
+        ),
+        // 同时订阅具体买卖事件，不做统一 Trade 归一化。
+        "buy-sell" => (
+            "PumpFunBuy + PumpFunSell",
+            EventTypeFilter::include_only(vec![EventType::PumpFunBuy, EventType::PumpFunSell]),
+        ),
+        // 常见 PumpFun 外层事件集合。
+        "pumpfun" => (
+            "PumpFun create/trade/migrate events",
+            EventTypeFilter::include_only(vec![
+                EventType::PumpFunCreate,
+                EventType::PumpFunCreateV2,
+                EventType::PumpFunTrade,
+                EventType::PumpFunMigrate,
+                EventType::PumpFunMigrateBondingCurveCreator,
+            ]),
+        ),
+        other => {
+            print_usage();
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("unknown filter: {}", other),
+            )
+            .into());
+        }
+    };
+    Ok(filter)
+}
+
+fn print_usage() {
+    println!("Usage: cargo run --example shredstream_example -- [OPTIONS]");
+    println!();
+    println!("Options:");
+    println!("  -e, --endpoint <URL>  ShredStream endpoint URL (default: http://127.0.0.1:10800)");
+    println!("  -f, --filter <NAME>   Event filter preset (default: trade)");
+    println!("  -h, --help            Print this help message");
+    println!();
+    println!("Filter presets:");
+    println!("  trade                 PumpFunTrade only, outputs DexEvent::PumpFunTrade");
+    println!("  create-trade          PumpFunCreate/PumpFunCreateV2 + unified PumpFunTrade");
+    println!("  buy                   PumpFunBuy only");
+    println!("  sell                  PumpFunSell only");
+    println!("  buy-exact-sol-in      PumpFunBuyExactSolIn only");
+    println!("  buy-sell              PumpFunBuy + PumpFunSell");
+    println!("  pumpfun               Common PumpFun create/trade/migrate events");
+    println!();
+    println!("Examples:");
+    println!("  cargo run --example shredstream_example -- --filter trade");
+    println!("  cargo run --example shredstream_example -- --filter create-trade");
+    println!("  cargo run --example shredstream_example -- --filter buy");
 }

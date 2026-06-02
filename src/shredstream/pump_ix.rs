@@ -1824,6 +1824,59 @@ mod tests {
     }
 
     #[test]
+    fn shred_pumpfun_buy_filter_keeps_buy_variant_only() {
+        let static_keys = vec![PROGRAM_ID_PUBKEY; 27];
+        let filter = EventTypeFilter::include_only(vec![crate::grpc::types::EventType::PumpFunBuy]);
+
+        let mut buy_data = Vec::new();
+        buy_data.extend_from_slice(&discriminators::BUY_V2);
+        buy_data.extend_from_slice(&100_u64.to_le_bytes());
+        buy_data.extend_from_slice(&200_u64.to_le_bytes());
+        let mut events = Vec::new();
+
+        dispatch_shred_outer(
+            0,
+            &ix_accounts(27),
+            &buy_data,
+            &static_keys,
+            Signature::default(),
+            123,
+            0,
+            456,
+            Some(&filter),
+            &PumpMintSet::new(),
+            &PumpMintSet::new(),
+            &mut events,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], DexEvent::PumpFunBuy(_)));
+
+        let mut exact_data = Vec::new();
+        exact_data.extend_from_slice(&discriminators::BUY_EXACT_SOL_IN);
+        exact_data.extend_from_slice(&100_u64.to_le_bytes());
+        exact_data.extend_from_slice(&200_u64.to_le_bytes());
+        events.clear();
+
+        dispatch_shred_outer(
+            0,
+            &ix_accounts(27),
+            &exact_data,
+            &static_keys,
+            Signature::default(),
+            123,
+            0,
+            456,
+            Some(&filter),
+            &PumpMintSet::new(),
+            &PumpMintSet::new(),
+            &mut events,
+        );
+
+        assert!(events.is_empty());
+    }
+
+    #[test]
     fn non_pump_outer_accounts_keep_instruction_length_with_alt_defaults() {
         let static_keys = vec![RAYDIUM_CPMM_PROGRAM_ID, Pubkey::new_unique()];
         let ix_accounts = vec![1, 42];

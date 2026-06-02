@@ -46,6 +46,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 println!("Examples:");
                 println!("  cargo run --example shredstream_pump_snipe");
                 println!("  cargo run --example shredstream_pump_snipe -- --endpoint http://192.168.1.100:10800");
+                println!();
+                println!(
+                    "This example uses filter: PumpFunCreate + PumpFunCreateV2 + PumpFunTrade"
+                );
+                println!("For more filter presets, run: cargo run --example shredstream_example -- --help");
                 std::process::exit(0);
             }
             _ => {
@@ -78,8 +83,10 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
     println!("✅ ShredStream client connected");
     println!("🎧 Listening for PumpFun token creation and first buy...\n");
 
-    // ShredStream 使用本地热路径事件过滤。
-    // 只订阅 PumpFunTrade 时，买/卖/精确 SOL 买入会统一回调为 DexEvent::PumpFunTrade。
+    // ShredStream 使用本地热路径事件过滤。这个狙击示例需要 create + trade：
+    // - PumpFunCreate / PumpFunCreateV2 用来记录新 mint
+    // - PumpFunTrade 会把买/卖/精确 SOL 买入统一回调为 DexEvent::PumpFunTrade
+    // 其它可配置 filter preset 见 `shredstream_example --help`。
     let event_filter = EventTypeFilter::include_only(vec![
         EventType::PumpFunCreate,
         EventType::PumpFunCreateV2,
