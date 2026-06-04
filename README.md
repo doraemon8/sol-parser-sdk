@@ -108,16 +108,24 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.8"
+sol-parser-sdk = "0.5.9"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.8", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.9", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.9
+
+- Implements real Yellowstone gRPC `stop()` behavior by signaling, aborting, and awaiting the active subscription task.
+- Serializes gRPC subscription lifecycle transitions so concurrent stop/re-subscribe calls cannot orphan retry loops.
+- Uses a per-subscription stop signal so a new subscription cannot accidentally reset the stop state for an older task.
+- Labels stream failures as `Grpc Stream error` to distinguish them from ShredStream logs.
+- Makes the warmup test independent from global test execution order.
 
 #### v0.5.8
 
