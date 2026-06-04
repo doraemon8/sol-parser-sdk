@@ -24,8 +24,10 @@ use once_cell::sync::Lazy;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
+use tokio::task::JoinHandle;
 use tokio::time::{Duration, Instant};
 // Note: ClientTlsConfig moved to yellowstone_grpc_client in newer versions
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient};
@@ -42,6 +44,8 @@ pub struct YellowstoneGrpc {
     token: Option<String>,
     config: ClientConfig,
     control_tx: Arc<Mutex<Option<mpsc::Sender<SubscribeRequest>>>>,
+    subscription_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    stopped: Arc<AtomicBool>,
 }
 
 impl YellowstoneGrpc {
@@ -55,6 +59,8 @@ impl YellowstoneGrpc {
             token,
             config: ClientConfig::default(),
             control_tx: Arc::new(Mutex::new(None)),
+            subscription_handle: Arc::new(Mutex::new(None)),
+            stopped: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -64,7 +70,14 @@ impl YellowstoneGrpc {
         config: ClientConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         crate::warmup::warmup_parser();
-        Ok(Self { endpoint, token, config, control_tx: Arc::new(Mutex::new(None)) })
+        Ok(Self {
+            endpoint,
+            token,
+            config,
+            control_tx: Arc::new(Mutex::new(None)),
+            subscription_handle: Arc::new(Mutex::new(None)),
+            stopped: Arc::new(AtomicBool::new(false)),
+        })
     }
 
     /// 订阅 DEX 事件（自动重连）
@@ -74,13 +87,21 @@ impl YellowstoneGrpc {
         account_filters: Vec<AccountFilter>,
         event_type_filter: Option<EventTypeFilter>,
     ) -> Result<Arc<ArrayQueue<DexEvent>>, Box<dyn std::error::Error>> {
+        self.stop().await;
+        self.stopped.store(false, Ordering::SeqCst);
+
         let queue = Arc::new(ArrayQueue::new(self.config.buffer_size.max(1)));
         let queue_clone = Arc::clone(&queue);
         let self_clone = self.clone();
+        let stopped = Arc::clone(&self.stopped);
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let mut delay = 1u64;
             loop {
+                if stopped.load(Ordering::SeqCst) {
+                    break;
+                }
+
                 match self_clone
                     .stream_events(
                         &transaction_filters,
@@ -91,13 +112,23 @@ impl YellowstoneGrpc {
                     .await
                 {
                     Ok(_) => delay = 1,
-                    Err(e) => println!("❌ gRPC error: {} - retry in {}s", e, delay),
+                    Err(e) => {
+                        if stopped.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        error!("Grpc error: {} - retry in {}s", e, delay);
+                    }
+                }
+
+                if stopped.load(Ordering::SeqCst) {
+                    break;
                 }
                 tokio::time::sleep(Duration::from_secs(delay)).await;
                 delay = (delay * 2).min(60);
             }
         });
 
+        *self.subscription_handle.lock().await = Some(handle);
         Ok(queue)
     }
 
@@ -115,7 +146,13 @@ impl YellowstoneGrpc {
     }
 
     pub async fn stop(&self) {
-        println!("🛑 Stopping gRPC subscription...");
+        self.stopped.store(true, Ordering::SeqCst);
+        self.control_tx.lock().await.take();
+        let handle = self.subscription_handle.lock().await.take();
+        if let Some(handle) = handle {
+            handle.abort();
+            let _ = handle.await;
+        }
     }
 
     // ==================== 核心事件流处理 ====================
@@ -206,6 +243,7 @@ impl YellowstoneGrpc {
                                     })
                                     .await
                                 {
+                                    self.control_tx.lock().await.take();
                                     return Err(e.to_string());
                                 }
                                 continue;
@@ -216,18 +254,21 @@ impl YellowstoneGrpc {
                             );
                         }
                         Some(Err(e)) => {
-                            error!("Stream error: {:?}", e);
+                            error!("Grpc Stream error: {:?}", e);
                             self.flush_on_disconnect(order_mode, &mut slot_buffer, queue);
+                            self.control_tx.lock().await.take();
                             return Err(e.to_string());
                         }
                         None => {
                             self.flush_on_disconnect(order_mode, &mut slot_buffer, queue);
+                            self.control_tx.lock().await.take();
                             return Ok(());
                         }
                     }
                 }
                 Some(req) = control_rx.recv() => {
                     if let Err(e) = subscribe_tx.lock().await.send(req).await {
+                        self.control_tx.lock().await.take();
                         return Err(e.to_string());
                     }
                 }
