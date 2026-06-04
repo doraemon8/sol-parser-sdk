@@ -45,6 +45,7 @@ pub struct YellowstoneGrpc {
     config: ClientConfig,
     control_tx: Arc<Mutex<Option<mpsc::Sender<SubscribeRequest>>>>,
     subscription_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    subscription_lifecycle: Arc<Mutex<()>>,
     stopped: Arc<AtomicBool>,
 }
 
@@ -60,6 +61,7 @@ impl YellowstoneGrpc {
             config: ClientConfig::default(),
             control_tx: Arc::new(Mutex::new(None)),
             subscription_handle: Arc::new(Mutex::new(None)),
+            subscription_lifecycle: Arc::new(Mutex::new(())),
             stopped: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -76,6 +78,7 @@ impl YellowstoneGrpc {
             config,
             control_tx: Arc::new(Mutex::new(None)),
             subscription_handle: Arc::new(Mutex::new(None)),
+            subscription_lifecycle: Arc::new(Mutex::new(())),
             stopped: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -87,7 +90,8 @@ impl YellowstoneGrpc {
         account_filters: Vec<AccountFilter>,
         event_type_filter: Option<EventTypeFilter>,
     ) -> Result<Arc<ArrayQueue<DexEvent>>, Box<dyn std::error::Error>> {
-        self.stop().await;
+        let _lifecycle = self.subscription_lifecycle.lock().await;
+        self.stop_without_lifecycle_lock().await;
         self.stopped.store(false, Ordering::SeqCst);
 
         let queue = Arc::new(ArrayQueue::new(self.config.buffer_size.max(1)));
@@ -146,6 +150,11 @@ impl YellowstoneGrpc {
     }
 
     pub async fn stop(&self) {
+        let _lifecycle = self.subscription_lifecycle.lock().await;
+        self.stop_without_lifecycle_lock().await;
+    }
+
+    async fn stop_without_lifecycle_lock(&self) {
         self.stopped.store(true, Ordering::SeqCst);
         self.control_tx.lock().await.take();
         let handle = self.subscription_handle.lock().await.take();
@@ -695,4 +704,28 @@ fn parse_instructions(
         grpc_us,
         filter,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stop_clears_subscription_state_and_aborts_handle() {
+        let grpc = YellowstoneGrpc::new("http://127.0.0.1:1".to_string(), None).unwrap();
+        let (tx, _rx) = mpsc::channel::<SubscribeRequest>(1);
+        let handle = tokio::spawn(async {
+            std::future::pending::<()>().await;
+        });
+
+        *grpc.control_tx.lock().await = Some(tx);
+        *grpc.subscription_handle.lock().await = Some(handle);
+        grpc.stopped.store(false, Ordering::SeqCst);
+
+        grpc.stop().await;
+
+        assert!(grpc.stopped.load(Ordering::SeqCst));
+        assert!(grpc.control_tx.lock().await.is_none());
+        assert!(grpc.subscription_handle.lock().await.is_none());
+    }
 }
