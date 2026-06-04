@@ -46,7 +46,7 @@ pub struct YellowstoneGrpc {
     control_tx: Arc<Mutex<Option<mpsc::Sender<SubscribeRequest>>>>,
     subscription_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
     subscription_lifecycle: Arc<Mutex<()>>,
-    stopped: Arc<AtomicBool>,
+    stop_signal: Arc<Mutex<Option<Arc<AtomicBool>>>>,
 }
 
 impl YellowstoneGrpc {
@@ -62,7 +62,7 @@ impl YellowstoneGrpc {
             control_tx: Arc::new(Mutex::new(None)),
             subscription_handle: Arc::new(Mutex::new(None)),
             subscription_lifecycle: Arc::new(Mutex::new(())),
-            stopped: Arc::new(AtomicBool::new(false)),
+            stop_signal: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -79,7 +79,7 @@ impl YellowstoneGrpc {
             control_tx: Arc::new(Mutex::new(None)),
             subscription_handle: Arc::new(Mutex::new(None)),
             subscription_lifecycle: Arc::new(Mutex::new(())),
-            stopped: Arc::new(AtomicBool::new(false)),
+            stop_signal: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -92,17 +92,17 @@ impl YellowstoneGrpc {
     ) -> Result<Arc<ArrayQueue<DexEvent>>, Box<dyn std::error::Error>> {
         let _lifecycle = self.subscription_lifecycle.lock().await;
         self.stop_without_lifecycle_lock().await;
-        self.stopped.store(false, Ordering::SeqCst);
 
         let queue = Arc::new(ArrayQueue::new(self.config.buffer_size.max(1)));
         let queue_clone = Arc::clone(&queue);
         let self_clone = self.clone();
-        let stopped = Arc::clone(&self.stopped);
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        *self.stop_signal.lock().await = Some(Arc::clone(&stop_signal));
 
         let handle = tokio::spawn(async move {
             let mut delay = 1u64;
             loop {
-                if stopped.load(Ordering::SeqCst) {
+                if stop_signal.load(Ordering::SeqCst) {
                     break;
                 }
 
@@ -117,14 +117,14 @@ impl YellowstoneGrpc {
                 {
                     Ok(_) => delay = 1,
                     Err(e) => {
-                        if stopped.load(Ordering::SeqCst) {
+                        if stop_signal.load(Ordering::SeqCst) {
                             break;
                         }
                         error!("Grpc error: {} - retry in {}s", e, delay);
                     }
                 }
 
-                if stopped.load(Ordering::SeqCst) {
+                if stop_signal.load(Ordering::SeqCst) {
                     break;
                 }
                 tokio::time::sleep(Duration::from_secs(delay)).await;
@@ -155,7 +155,9 @@ impl YellowstoneGrpc {
     }
 
     async fn stop_without_lifecycle_lock(&self) {
-        self.stopped.store(true, Ordering::SeqCst);
+        if let Some(stop_signal) = self.stop_signal.lock().await.take() {
+            stop_signal.store(true, Ordering::SeqCst);
+        }
         self.control_tx.lock().await.take();
         let handle = self.subscription_handle.lock().await.take();
         if let Some(handle) = handle {
@@ -718,13 +720,15 @@ mod tests {
             std::future::pending::<()>().await;
         });
 
+        let stop_signal = Arc::new(AtomicBool::new(false));
         *grpc.control_tx.lock().await = Some(tx);
         *grpc.subscription_handle.lock().await = Some(handle);
-        grpc.stopped.store(false, Ordering::SeqCst);
+        *grpc.stop_signal.lock().await = Some(Arc::clone(&stop_signal));
 
         grpc.stop().await;
 
-        assert!(grpc.stopped.load(Ordering::SeqCst));
+        assert!(stop_signal.load(Ordering::SeqCst));
+        assert!(grpc.stop_signal.lock().await.is_none());
         assert!(grpc.control_tx.lock().await.is_none());
         assert!(grpc.subscription_handle.lock().await.is_none());
     }
