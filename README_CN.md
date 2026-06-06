@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.9"
+sol-parser-sdk = "0.5.10"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.9", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.10", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
+
+#### v0.5.10
+
+- PumpSwap `CreatePoolEvent` 与链上 IDL 对齐：事件暴露 `is_mayhem_mode`，但不暴露 `is_cashback_coin`。
+- PumpSwap `is_cashback_coin` 保留在 `AccountPumpSwapPool` 账户事件中，因为该字段存储在链上 `Pool` account。
+- 修复 PumpSwap CreatePool log payload 长度检查，包含最后的 `is_mayhem_mode` 字节。
+- 文档明确 ShredStream CreatePool 事件无法恢复 `is_cashback_coin`，因为 Shred entry 不包含账户 body。
 
 #### v0.5.9
 
@@ -478,6 +485,7 @@ let event_filter = EventTypeFilter::include_only(vec![
     EventType::PumpFunCreate,
     EventType::PumpFeesUpdateFeeShares,
     EventType::PumpSwapCreatePool,
+    EventType::AccountPumpSwapPool,
     EventType::RaydiumCpmmInitialize,
     EventType::RaydiumClmmCreatePool,
     EventType::OrcaWhirlpoolPoolInitialized,
@@ -486,6 +494,11 @@ let event_filter = EventTypeFilter::include_only(vec![
     EventType::MeteoraDlmmInitializePool,
 ]);
 ```
+
+`PumpSwapCreatePool` 对齐链上 `CreatePoolEvent` IDL，包含
+`is_mayhem_mode`，但不包含 `is_cashback_coin`。如果需要 cashback 标记，
+请订阅 `AccountPumpSwapPool`，并读取
+`PumpSwapPoolAccountEvent.pool.is_cashback_coin`。
 
 **性能影响：**
 - 减少 60-80% 的处理开销

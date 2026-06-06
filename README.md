@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.9"
+sol-parser-sdk = "0.5.10"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.9", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.10", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.10
+
+- Aligns PumpSwap `CreatePoolEvent` with the on-chain IDL: the event exposes `is_mayhem_mode` but not `is_cashback_coin`.
+- Keeps PumpSwap `is_cashback_coin` on the `AccountPumpSwapPool` account event, where the on-chain `Pool` account stores it.
+- Fixes the PumpSwap CreatePool log payload length check to include the final `is_mayhem_mode` byte.
+- Documents that ShredStream CreatePool events cannot recover `is_cashback_coin` because Shred entries do not include account bodies.
 
 #### v0.5.9
 
@@ -479,6 +486,7 @@ let event_filter = EventTypeFilter::include_only(vec![
     EventType::PumpFunCreate,
     EventType::PumpFeesUpdateFeeShares,
     EventType::PumpSwapCreatePool,
+    EventType::AccountPumpSwapPool,
     EventType::RaydiumCpmmInitialize,
     EventType::RaydiumClmmCreatePool,
     EventType::OrcaWhirlpoolPoolInitialized,
@@ -487,6 +495,11 @@ let event_filter = EventTypeFilter::include_only(vec![
     EventType::MeteoraDlmmInitializePool,
 ]);
 ```
+
+`PumpSwapCreatePool` follows the on-chain `CreatePoolEvent` IDL and includes
+`is_mayhem_mode`, but it does not include `is_cashback_coin`. To read the
+cashback flag, subscribe to `AccountPumpSwapPool` and use
+`PumpSwapPoolAccountEvent.pool.is_cashback_coin`.
 
 **Performance Impact:**
 - 60-80% reduction in processing

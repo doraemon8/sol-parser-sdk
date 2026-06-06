@@ -726,7 +726,7 @@ pub struct PumpSwapCreatePoolEvent {
     pub user_base_token_account: Pubkey,
     pub user_quote_token_account: Pubkey,
     pub coin_creator: Pubkey,
-    /// IDL CreatePoolEvent 最后一列
+    /// IDL CreatePoolEvent last field.
     pub is_mayhem_mode: bool,
 }
 

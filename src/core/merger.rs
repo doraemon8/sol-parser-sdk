@@ -757,6 +757,7 @@ fn merge_pumpswap_create_pool_log_preferred(
     fill_pk(&mut log.user_base_token_account, ix.user_base_token_account);
     fill_pk(&mut log.user_quote_token_account, ix.user_quote_token_account);
     fill_pk(&mut log.coin_creator, ix.coin_creator);
+    log.is_mayhem_mode |= ix.is_mayhem_mode;
 }
 
 #[inline]
