@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.10"
+sol-parser-sdk = "0.5.11"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.10", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.11", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
+
+#### v0.5.11
+
+- 解析 PumpSwap `create_pool` 指令参数，包括 `index`、注入数量、`coin_creator`、`is_mayhem_mode`、`is_cashback_coin`。
+- 修正 PumpSwap `create_pool` 指令账户映射，按 IDL 填充 `pool`、`creator`、`base_mint`、`quote_mint`、LP/用户 token account。
+- instruction 路径的 CreatePool 数据与 log 路径合并时，会保留 `is_cashback_coin`。
+- 明确字段来源：PumpSwap log `CreatePoolEvent` IDL 不包含 `is_cashback_coin`；ShredStream/外层指令解析可从 instruction data 读取该字段，账户订阅可从 `Pool` account 读取权威字段。
 
 #### v0.5.10
 
@@ -495,10 +502,11 @@ let event_filter = EventTypeFilter::include_only(vec![
 ]);
 ```
 
-`PumpSwapCreatePool` 对齐链上 `CreatePoolEvent` IDL，包含
-`is_mayhem_mode`，但不包含 `is_cashback_coin`。如果需要 cashback 标记，
-请订阅 `AccountPumpSwapPool`，并读取
-`PumpSwapPoolAccountEvent.pool.is_cashback_coin`。
+`PumpSwapCreatePool` 包含 `is_mayhem_mode`。对于 `is_cashback_coin`，
+ShredStream/外层指令解析会从 `create_pool` instruction args 读取；
+log-only 的 `CreatePoolEvent` payload 因为 IDL 不包含该字段，会保持默认
+`false`。账户里的权威值也可通过
+`PumpSwapPoolAccountEvent.pool.is_cashback_coin` 读取。
 
 **性能影响：**
 - 减少 60-80% 的处理开销

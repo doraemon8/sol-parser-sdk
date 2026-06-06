@@ -108,16 +108,23 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.10"
+sol-parser-sdk = "0.5.11"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.10", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.11", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.11
+
+- Parses PumpSwap `create_pool` instruction args, including `index`, deposit amounts, `coin_creator`, `is_mayhem_mode`, and `is_cashback_coin`.
+- Fixes PumpSwap `create_pool` instruction account mapping to match the IDL (`pool`, `creator`, `base_mint`, `quote_mint`, LP/user token accounts).
+- Preserves `is_cashback_coin` when instruction-derived CreatePool data is merged with log-derived CreatePool data.
+- Clarifies source semantics: the PumpSwap log `CreatePoolEvent` IDL does not carry `is_cashback_coin`; ShredStream/outer-instruction parsing can read it from instruction data, and account subscriptions can read the authoritative `Pool` account field.
 
 #### v0.5.10
 
@@ -496,9 +503,11 @@ let event_filter = EventTypeFilter::include_only(vec![
 ]);
 ```
 
-`PumpSwapCreatePool` follows the on-chain `CreatePoolEvent` IDL and includes
-`is_mayhem_mode`, but it does not include `is_cashback_coin`. To read the
-cashback flag, subscribe to `AccountPumpSwapPool` and use
+`PumpSwapCreatePool` includes `is_mayhem_mode`. For `is_cashback_coin`,
+ShredStream/outer-instruction parsing reads the flag from the `create_pool`
+instruction args, while log-only `CreatePoolEvent` payloads keep the default
+`false` because the log event IDL does not carry this field. The authoritative
+account value is also available from
 `PumpSwapPoolAccountEvent.pool.is_cashback_coin`.
 
 **Performance Impact:**

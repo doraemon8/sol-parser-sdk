@@ -555,6 +555,7 @@ fn parse_create_pool_event_optimized(
             user_quote_token_account,
             coin_creator,
             is_mayhem_mode,
+            is_cashback_coin: false,
         }))
     }
 }
@@ -949,6 +950,7 @@ pub fn parse_create_pool_from_data(data: &[u8], metadata: EventMetadata) -> Opti
             user_quote_token_account,
             coin_creator,
             is_mayhem_mode,
+            is_cashback_coin: false,
         }))
     }
 }
@@ -1232,5 +1234,6 @@ mod tests {
 
         assert_eq!(event.index, 42);
         assert!(event.is_mayhem_mode);
+        assert!(!event.is_cashback_coin);
     }
 }

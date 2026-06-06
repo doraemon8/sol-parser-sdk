@@ -728,6 +728,10 @@ pub struct PumpSwapCreatePoolEvent {
     pub coin_creator: Pubkey,
     /// IDL CreatePoolEvent last field.
     pub is_mayhem_mode: bool,
+    /// create_pool instruction arg and Pool account field. Log-only CreatePoolEvent payloads do
+    /// not carry this value, so log-only parses keep the default `false`.
+    #[serde(default)]
+    pub is_cashback_coin: bool,
 }
 
 /// PumpSwap Pool Created Event - 指令解析版本
