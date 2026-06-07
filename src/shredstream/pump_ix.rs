@@ -12,8 +12,8 @@ use solana_sdk::transaction::VersionedTransaction;
 
 use crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
 use crate::core::events::{
-    DexEvent, EventMetadata, PumpFunCreateTokenEvent, PumpFunMigrateBondingCurveCreatorEvent,
-    PumpFunTradeEvent, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+    normalize_pumpfun_quote_mint, DexEvent, EventMetadata, PumpFunCreateTokenEvent,
+    PumpFunMigrateBondingCurveCreatorEvent, PumpFunTradeEvent, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
 };
 use crate::grpc::types::EventTypeFilter;
 use crate::instr::program_ids::{
@@ -252,7 +252,7 @@ fn token_program_or_default(token_program: Pubkey) -> Pubkey {
 
 #[inline(always)]
 fn quote_mint_from_shred_v2_account(quote_mint: Option<Pubkey>) -> Pubkey {
-    quote_mint.unwrap_or_default()
+    normalize_pumpfun_quote_mint(quote_mint.unwrap_or_default())
 }
 
 #[inline]

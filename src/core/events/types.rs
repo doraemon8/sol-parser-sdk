@@ -10,14 +10,18 @@ use solana_sdk::{pubkey, pubkey::Pubkey, signature::Signature};
 
 /// Solscan SOL quote-mint sentinel used when PumpFun legacy events omit quote_mint.
 ///
-/// PumpFun legacy SOL instructions and older trade logs do not carry an SPL quote mint.
+/// PumpFun native-SOL instructions and older trade logs do not carry a real SPL quote mint.
 /// We expose the same SOL placeholder Solscan displays instead of `Pubkey::default()`.
 pub const PUMPFUN_SOLSCAN_SOL_QUOTE_MINT: Pubkey =
     pubkey!("So11111111111111111111111111111111111111111");
 
+/// SPL wrapped-SOL mint. Pump CreateV2 may expose this as a SOL quote sentinel, but it still
+/// represents native SOL semantics unless a consumer explicitly chooses WSOL settlement.
+pub const PUMPFUN_WSOL_QUOTE_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+
 #[inline]
 pub fn normalize_pumpfun_quote_mint(quote_mint: Pubkey) -> Pubkey {
-    if quote_mint == Pubkey::default() {
+    if quote_mint == Pubkey::default() || quote_mint == PUMPFUN_WSOL_QUOTE_MINT {
         PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
     } else {
         quote_mint
@@ -26,7 +30,7 @@ pub fn normalize_pumpfun_quote_mint(quote_mint: Pubkey) -> Pubkey {
 
 #[inline]
 pub fn is_pumpfun_solscan_sol_quote_mint(quote_mint: Pubkey) -> bool {
-    quote_mint == PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
+    normalize_pumpfun_quote_mint(quote_mint) == PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
 }
 
 /// 基础元数据 - 所有事件共享的字段
@@ -52,6 +56,15 @@ mod tests {
 
         assert_eq!(quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
         assert_eq!(quote_mint.to_string(), "So11111111111111111111111111111111111111111");
+    }
+
+    #[test]
+    fn pumpfun_wsol_quote_mint_uses_solscan_sol_sentinel() {
+        assert_eq!(
+            normalize_pumpfun_quote_mint(PUMPFUN_WSOL_QUOTE_MINT),
+            PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
+        );
+        assert!(is_pumpfun_solscan_sol_quote_mint(PUMPFUN_WSOL_QUOTE_MINT));
     }
 }
 
