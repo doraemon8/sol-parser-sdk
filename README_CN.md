@@ -108,16 +108,22 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.11"
+sol-parser-sdk = "0.5.13"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.11", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.13", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
+
+#### v0.5.13
+
+- gRPC 和 ShredStream 的 Pump.fun create/trade 输出会保留真实 WSOL quote mint（`So11111111111111111111111111111111111111112`）。
+- 只有 legacy 或缺失 Pump.fun quote mint 字段时，才使用 Solscan SOL sentinel（`So11111111111111111111111111111111111111111`）。
+- 增加合并覆盖：占位 SOL quote mint 可以被后续 log 或 instruction/account 上下文中的真实 WSOL quote mint 替换。
 
 #### v0.5.11
 

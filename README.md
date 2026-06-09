@@ -108,16 +108,22 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.11"
+sol-parser-sdk = "0.5.13"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.11", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.13", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.13
+
+- Preserves real Pump.fun WSOL quote mints (`So11111111111111111111111111111111111111112`) in gRPC and ShredStream create/trade outputs.
+- Keeps the Solscan SOL sentinel (`So11111111111111111111111111111111111111111`) only for legacy or missing Pump.fun quote mint fields.
+- Adds merge coverage so a placeholder SOL quote mint can be replaced by a later real WSOL quote mint from logs or instruction/account context.
 
 #### v0.5.11
 

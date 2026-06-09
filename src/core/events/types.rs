@@ -15,13 +15,12 @@ use solana_sdk::{pubkey, pubkey::Pubkey, signature::Signature};
 pub const PUMPFUN_SOLSCAN_SOL_QUOTE_MINT: Pubkey =
     pubkey!("So11111111111111111111111111111111111111111");
 
-/// SPL wrapped-SOL mint. Pump CreateV2 may expose this as a SOL quote sentinel, but it still
-/// represents native SOL semantics unless a consumer explicitly chooses WSOL settlement.
+/// SPL wrapped-SOL mint.
 pub const PUMPFUN_WSOL_QUOTE_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
 #[inline]
 pub fn normalize_pumpfun_quote_mint(quote_mint: Pubkey) -> Pubkey {
-    if quote_mint == Pubkey::default() || quote_mint == PUMPFUN_WSOL_QUOTE_MINT {
+    if quote_mint == Pubkey::default() {
         PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
     } else {
         quote_mint
@@ -59,12 +58,9 @@ mod tests {
     }
 
     #[test]
-    fn pumpfun_wsol_quote_mint_uses_solscan_sol_sentinel() {
-        assert_eq!(
-            normalize_pumpfun_quote_mint(PUMPFUN_WSOL_QUOTE_MINT),
-            PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
-        );
-        assert!(is_pumpfun_solscan_sol_quote_mint(PUMPFUN_WSOL_QUOTE_MINT));
+    fn pumpfun_wsol_quote_mint_is_preserved() {
+        assert_eq!(normalize_pumpfun_quote_mint(PUMPFUN_WSOL_QUOTE_MINT), PUMPFUN_WSOL_QUOTE_MINT);
+        assert!(!is_pumpfun_solscan_sol_quote_mint(PUMPFUN_WSOL_QUOTE_MINT));
     }
 }
 

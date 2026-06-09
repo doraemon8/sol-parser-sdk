@@ -1052,6 +1052,27 @@ mod tests {
     }
 
     #[test]
+    fn merge_replaces_sol_quote_sentinel_with_wsol_mint() {
+        let mut base = DexEvent::PumpFunTrade(PumpFunTradeEvent {
+            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+            ..Default::default()
+        });
+
+        let inner = DexEvent::PumpFunBuy(PumpFunTradeEvent {
+            quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+            ..Default::default()
+        });
+
+        merge_events(&mut base, inner);
+
+        if let DexEvent::PumpFunTrade(t) = base {
+            assert_eq!(t.quote_mint, PUMPFUN_WSOL_QUOTE_MINT);
+        } else {
+            panic!("Expected PumpFunTrade event");
+        }
+    }
+
+    #[test]
     fn test_can_merge() {
         let metadata = EventMetadata {
             signature: Signature::default(),
