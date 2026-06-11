@@ -108,16 +108,22 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.5.13"
+sol-parser-sdk = "0.5.14"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.5.13", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.14", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Release Notes
+
+#### v0.5.14
+
+- Fixes Pump.fun `create_v2` quote-pool account mapping: appended accounts `16`, `17`, and `18` now fill `quote_mint`, `quote_vault`, and `quote_token_program`.
+- Preserves USDC quote mints in canonical Pump.fun create events across gRPC, RPC instruction parsing, and ShredStream.
+- Extends Pump.fun create/create_v2 event structs and merge/account-filler paths so quote-side fields are not dropped when log and instruction data are combined.
 
 #### v0.5.13
 
