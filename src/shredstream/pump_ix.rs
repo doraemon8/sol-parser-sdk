@@ -267,6 +267,7 @@ fn create_v2_quote_accounts_from_shred_accounts(
     let quote_vault = get_account(17).unwrap_or_default();
     let quote_token_program = get_account(18).unwrap_or_default();
     if quote_mint == Pubkey::default()
+        || quote_mint == PROGRAM_ID_PUBKEY
         || quote_vault == Pubkey::default()
         || quote_token_program == Pubkey::default()
     {
@@ -1881,6 +1882,31 @@ mod tests {
             DexEvent::PumpFunCreate(event) => {
                 assert_eq!(event.ix_name, "create_v2");
                 assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, "{signature}");
+                assert_eq!(event.quote_vault, Pubkey::default(), "{signature}");
+                assert_eq!(event.quote_token_program, Pubkey::default(), "{signature}");
+            }
+            other => panic!("expected PumpFunCreate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_create_v2_rejects_program_id_as_quote_mint() {
+        let mut static_keys = vec![Pubkey::new_unique(); 20];
+        static_keys[19] = PROGRAM_ID_PUBKEY;
+        static_keys[16] = PROGRAM_ID_PUBKEY;
+        static_keys[17] = Pubkey::new_unique();
+        static_keys[18] = Pubkey::new_unique();
+        let tx = v0_tx(19, static_keys, ix_accounts(19), create_v2_data());
+
+        let events = parse_shred_events_like_client(&tx);
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            DexEvent::PumpFunCreate(event) => {
+                assert_eq!(event.ix_name, "create_v2");
+                assert_eq!(event.quote_mint, Pubkey::default());
+                assert_eq!(event.quote_vault, Pubkey::default());
+                assert_eq!(event.quote_token_program, Pubkey::default());
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }
@@ -1982,8 +2008,9 @@ mod tests {
             if case.account_len > 18 {
                 static_keys[18] = spl_token_program;
             }
-            let tx =
-                v0_tx(program_idx, static_keys, ix_accounts(case.account_len), create_v2_data());
+            let mut accounts = ix_accounts(case.account_len);
+            accounts[15] = program_idx;
+            let tx = v0_tx(program_idx, static_keys, accounts, create_v2_data());
 
             let events = parse_shred_events_like_client(&tx);
 
@@ -2012,6 +2039,11 @@ mod tests {
                     );
                     assert_eq!(
                         event.quote_token_program, spl_token_program,
+                        "{}: {}",
+                        case.name, case.signature
+                    );
+                    assert_eq!(
+                        event.program, PROGRAM_ID_PUBKEY,
                         "{}: {}",
                         case.name, case.signature
                     );

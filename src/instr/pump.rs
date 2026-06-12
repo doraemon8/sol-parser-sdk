@@ -43,6 +43,7 @@ fn create_v2_quote_accounts_from_accounts(accounts: &[Pubkey]) -> (Pubkey, Pubke
     let quote_vault = get_account(accounts, 17).unwrap_or_default();
     let quote_token_program = get_account(accounts, 18).unwrap_or_default();
     if quote_mint == Pubkey::default()
+        || quote_mint == program_ids::PUMPFUN_PROGRAM_ID
         || quote_vault == Pubkey::default()
         || quote_token_program == Pubkey::default()
     {
@@ -875,6 +876,26 @@ mod tests {
         let mut acc = accounts(19);
         acc[16] = PUMPFUN_WSOL_QUOTE_MINT;
         acc[17] = Pubkey::default();
+        let event =
+            parse_instruction(&create_v2_data(), &acc, Signature::default(), 1, 0, None, 99)
+                .expect("event");
+
+        match event {
+            DexEvent::PumpFunCreate(c) => {
+                assert_eq!(c.quote_mint, Pubkey::default());
+                assert_eq!(c.quote_vault, Pubkey::default());
+                assert_eq!(c.quote_token_program, Pubkey::default());
+            }
+            other => panic!("expected canonical PumpFunCreate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_create_v2_instruction_rejects_program_id_as_quote_mint() {
+        let mut acc = accounts(19);
+        acc[16] = program_ids::PUMPFUN_PROGRAM_ID;
+        acc[17] = Pubkey::new_unique();
+        acc[18] = Pubkey::new_unique();
         let event =
             parse_instruction(&create_v2_data(), &acc, Signature::default(), 1, 0, None, 99)
                 .expect("event");

@@ -472,29 +472,34 @@ mod tests {
 
     fn grpc_pumpfun_create_v2_tx(
         static_len: usize,
+        writable_len: usize,
         program_idx: u8,
         ix_accounts: Vec<u8>,
         account_overrides: Vec<(usize, Pubkey)>,
     ) -> (TransactionStatusMeta, Option<Transaction>) {
         let mut account_keys: Vec<Pubkey> = (0..static_len).map(|_| Pubkey::new_unique()).collect();
         account_keys[program_idx as usize] = crate::instr::program_ids::PUMPFUN_PROGRAM_ID;
-        let loaded_len = account_overrides
+        let readonly_len = account_overrides
             .iter()
-            .filter(|(global_idx, _)| *global_idx >= static_len)
-            .map(|(global_idx, _)| global_idx - static_len + 1)
+            .filter(|(global_idx, _)| *global_idx >= static_len + writable_len)
+            .map(|(global_idx, _)| global_idx - static_len - writable_len + 1)
             .max()
             .unwrap_or_default();
-        let mut loaded = vec![Pubkey::new_unique(); loaded_len];
+        let mut loaded_writable = vec![Pubkey::new_unique(); writable_len];
+        let mut loaded_readonly = vec![Pubkey::new_unique(); readonly_len];
         for (global_idx, key) in account_overrides {
             if global_idx < static_len {
                 account_keys[global_idx] = key;
+            } else if global_idx < static_len + writable_len {
+                loaded_writable[global_idx - static_len] = key;
             } else {
-                loaded[global_idx - static_len] = key;
+                loaded_readonly[global_idx - static_len - writable_len] = key;
             }
         }
 
         let meta = TransactionStatusMeta {
-            loaded_writable_addresses: loaded.into_iter().map(pubkey_bytes).collect(),
+            loaded_writable_addresses: loaded_writable.into_iter().map(pubkey_bytes).collect(),
+            loaded_readonly_addresses: loaded_readonly.into_iter().map(pubkey_bytes).collect(),
             ..Default::default()
         };
         let tx = Transaction {
@@ -772,6 +777,7 @@ mod tests {
             signature: &'static str,
             name: &'static str,
             static_len: usize,
+            writable_len: usize,
             program_idx: u8,
             account_len: usize,
             mint_idx: u8,
@@ -792,6 +798,7 @@ mod tests {
                 signature: "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
                 name: "19-account WSOL quote in ALT",
                 static_len: 15,
+                writable_len: 7,
                 program_idx: 12,
                 account_len: 19,
                 mint_idx: 1,
@@ -809,6 +816,7 @@ mod tests {
                 signature: "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
                 name: "19-account WSOL quote in ALT with exact quote buy",
                 static_len: 20,
+                writable_len: 7,
                 program_idx: 15,
                 account_len: 19,
                 mint_idx: 1,
@@ -826,6 +834,7 @@ mod tests {
                 signature: "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
                 name: "19-account USDC quote in ALT",
                 static_len: 19,
+                writable_len: 6,
                 program_idx: 16,
                 account_len: 19,
                 mint_idx: 1,
@@ -843,6 +852,7 @@ mod tests {
                 signature: "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
                 name: "20-account WSOL quote in ALT",
                 static_len: 15,
+                writable_len: 7,
                 program_idx: 12,
                 account_len: 20,
                 mint_idx: 1,
@@ -860,6 +870,7 @@ mod tests {
                 signature: "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
                 name: "19-account WSOL quote in ALT with later buy",
                 static_len: 18,
+                writable_len: 7,
                 program_idx: 13,
                 account_len: 19,
                 mint_idx: 1,
@@ -877,6 +888,7 @@ mod tests {
                 signature: "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
                 name: "19-account USDC quote in ALT exact quote buy",
                 static_len: 19,
+                writable_len: 6,
                 program_idx: 15,
                 account_len: 19,
                 mint_idx: 1,
@@ -894,6 +906,7 @@ mod tests {
                 signature: "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
                 name: "20-account WSOL quote in ALT with jit account",
                 static_len: 15,
+                writable_len: 7,
                 program_idx: 12,
                 account_len: 20,
                 mint_idx: 1,
@@ -912,6 +925,7 @@ mod tests {
         for case in cases {
             let (meta, tx) = grpc_pumpfun_create_v2_tx(
                 case.static_len,
+                case.writable_len,
                 case.program_idx,
                 create_v2_accounts(
                     case.account_len,
@@ -930,6 +944,47 @@ mod tests {
                     (case.quote_token_program_idx as usize, spl_token_program),
                 ],
             );
+            let loaded_key_location = |global_idx: u8| -> (&'static str, usize) {
+                let idx = global_idx as usize;
+                if idx < case.static_len {
+                    ("static", idx)
+                } else if idx < case.static_len + case.writable_len {
+                    ("writable", idx - case.static_len)
+                } else {
+                    ("readonly", idx - case.static_len - case.writable_len)
+                }
+            };
+            assert_eq!(
+                meta.loaded_writable_addresses.len(),
+                case.writable_len,
+                "{}: {}",
+                case.name,
+                case.signature
+            );
+            for (global_idx, expected_key) in [
+                (case.token_program_idx, token_2022_program),
+                (case.quote_idx, case.quote_mint),
+                (case.quote_token_program_idx, spl_token_program),
+            ] {
+                match loaded_key_location(global_idx) {
+                    ("static", _) => {}
+                    ("writable", offset) => assert_eq!(
+                        read_pubkey_fast(&meta.loaded_writable_addresses[offset]),
+                        expected_key,
+                        "{}: writable loaded key {global_idx}: {}",
+                        case.name,
+                        case.signature
+                    ),
+                    ("readonly", offset) => assert_eq!(
+                        read_pubkey_fast(&meta.loaded_readonly_addresses[offset]),
+                        expected_key,
+                        "{}: readonly loaded key {global_idx}: {}",
+                        case.name,
+                        case.signature
+                    ),
+                    _ => unreachable!(),
+                }
+            }
 
             let create = parse_create_v2_from_grpc(&meta, &tx);
 
@@ -964,6 +1019,7 @@ mod tests {
         let token_program = crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
         let (meta, tx) = grpc_pumpfun_create_v2_tx(
             16,
+            5,
             12,
             create_v2_accounts(16, 12, 1, 0, 24, None),
             vec![(1, mint), (0, user), (24, token_program)],
@@ -977,5 +1033,29 @@ mod tests {
         assert_eq!(create.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, "{signature}");
         assert_eq!(create.quote_vault, Pubkey::default(), "{signature}");
         assert_eq!(create.quote_token_program, Pubkey::default(), "{signature}");
+    }
+
+    #[test]
+    fn grpc_pumpfun_create_v2_rejects_program_id_as_quote_mint() {
+        let quote_vault = Pubkey::new_unique();
+        let quote_token_program = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
+        let (meta, tx) = grpc_pumpfun_create_v2_tx(
+            19,
+            6,
+            16,
+            create_v2_accounts(19, 16, 1, 0, 27, Some((30, 6, 31))),
+            vec![
+                (27, crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID),
+                (30, crate::instr::program_ids::PUMPFUN_PROGRAM_ID),
+                (6, quote_vault),
+                (31, quote_token_program),
+            ],
+        );
+
+        let create = parse_create_v2_from_grpc(&meta, &tx);
+
+        assert_eq!(create.quote_mint, Pubkey::default());
+        assert_eq!(create.quote_vault, Pubkey::default());
+        assert_eq!(create.quote_token_program, Pubkey::default());
     }
 }
