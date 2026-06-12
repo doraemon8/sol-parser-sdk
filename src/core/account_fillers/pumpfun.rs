@@ -24,21 +24,22 @@ fn fill_create_v2_quote_accounts_if_appended(
     quote_token_program_to: &mut Pubkey,
     get: &AccountGetter<'_>,
 ) {
+    let quote_mint = get(16);
+    let quote_vault = get(17);
     let quote_token_program = get(18);
-    if quote_token_program == Pubkey::default() {
+    if quote_mint == Pubkey::default()
+        || quote_mint == crate::instr::program_ids::PUMPFUN_PROGRAM_ID
+        || quote_vault == Pubkey::default()
+        || quote_token_program == Pubkey::default()
+    {
         return;
     }
 
     if *quote_mint_to == Pubkey::default() || is_pumpfun_solscan_sol_quote_mint(*quote_mint_to) {
-        let quote_mint = get(16);
-        if quote_mint != Pubkey::default()
-            && quote_mint != crate::instr::program_ids::PUMPFUN_PROGRAM_ID
-        {
-            *quote_mint_to = normalize_pumpfun_quote_mint(quote_mint);
-        }
+        *quote_mint_to = normalize_pumpfun_quote_mint(quote_mint);
     }
     if *quote_vault_to == Pubkey::default() {
-        *quote_vault_to = get(17);
+        *quote_vault_to = quote_vault;
     }
     if *quote_token_program_to == Pubkey::default() {
         *quote_token_program_to = quote_token_program;
@@ -463,6 +464,48 @@ mod tests {
         assert_eq!(without_tail.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
         assert_eq!(without_tail.quote_vault, Pubkey::default());
         assert_eq!(without_tail.quote_token_program, Pubkey::default());
+    }
+
+    #[test]
+    fn fill_create_accounts_from_v2_does_not_fill_partial_quote_tail() {
+        let quote_vault = Pubkey::new_from_array([17u8; 32]);
+        let quote_token_program = Pubkey::new_from_array([18u8; 32]);
+        let get_missing_quote_mint = |i: usize| -> Pubkey {
+            match i {
+                17 => quote_vault,
+                18 => quote_token_program,
+                _ => Pubkey::default(),
+            }
+        };
+        let mut e = PumpFunCreateTokenEvent {
+            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+            ..Default::default()
+        };
+
+        fill_create_accounts_from_v2(&mut e, &get_missing_quote_mint);
+
+        assert_eq!(e.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+        assert_eq!(e.quote_vault, Pubkey::default());
+        assert_eq!(e.quote_token_program, Pubkey::default());
+
+        let quote_mint = PUMPFUN_WSOL_QUOTE_MINT;
+        let get_missing_quote_vault = |i: usize| -> Pubkey {
+            match i {
+                16 => quote_mint,
+                18 => quote_token_program,
+                _ => Pubkey::default(),
+            }
+        };
+        let mut e = PumpFunCreateTokenEvent {
+            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+            ..Default::default()
+        };
+
+        fill_create_accounts_from_v2(&mut e, &get_missing_quote_vault);
+
+        assert_eq!(e.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+        assert_eq!(e.quote_vault, Pubkey::default());
+        assert_eq!(e.quote_token_program, Pubkey::default());
     }
 
     #[test]

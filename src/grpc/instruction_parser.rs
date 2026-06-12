@@ -438,6 +438,117 @@ fn should_parse_instructions(filter: Option<&EventTypeFilter>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::events::{PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, PUMPFUN_WSOL_QUOTE_MINT};
+    use yellowstone_grpc_proto::prelude::{CompiledInstruction, Message, MessageHeader};
+
+    fn pk(s: &str) -> Pubkey {
+        s.parse().unwrap()
+    }
+
+    fn usdc_mint() -> Pubkey {
+        pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+    }
+
+    fn pubkey_bytes(key: Pubkey) -> Vec<u8> {
+        key.to_bytes().to_vec()
+    }
+
+    fn str_arg(s: &str, out: &mut Vec<u8>) {
+        out.extend_from_slice(&(s.len() as u32).to_le_bytes());
+        out.extend_from_slice(s.as_bytes());
+    }
+
+    fn create_v2_data() -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&crate::instr::pump::discriminators::CREATE_V2);
+        str_arg("Alt Coin", &mut data);
+        str_arg("ALT", &mut data);
+        str_arg("https://example.invalid/alt.json", &mut data);
+        data.extend_from_slice(Pubkey::new_unique().as_ref());
+        data.push(1);
+        data.push(1);
+        data
+    }
+
+    fn grpc_pumpfun_create_v2_tx(
+        static_len: usize,
+        program_idx: u8,
+        ix_accounts: Vec<u8>,
+        loaded_writable_addresses: Vec<(usize, Pubkey)>,
+    ) -> (TransactionStatusMeta, Option<Transaction>) {
+        let mut account_keys: Vec<Pubkey> = (0..static_len).map(|_| Pubkey::new_unique()).collect();
+        account_keys[program_idx as usize] = crate::instr::program_ids::PUMPFUN_PROGRAM_ID;
+        let loaded_len = loaded_writable_addresses
+            .iter()
+            .map(|(global_idx, _)| global_idx.saturating_sub(static_len) + 1)
+            .max()
+            .unwrap_or_default();
+        let mut loaded = vec![Pubkey::new_unique(); loaded_len];
+        for (global_idx, key) in loaded_writable_addresses {
+            loaded[global_idx - static_len] = key;
+        }
+
+        let meta = TransactionStatusMeta {
+            loaded_writable_addresses: loaded.into_iter().map(pubkey_bytes).collect(),
+            ..Default::default()
+        };
+        let tx = Transaction {
+            signatures: vec![Signature::default().as_ref().to_vec()],
+            message: Some(Message {
+                header: Some(MessageHeader {
+                    num_required_signatures: 1,
+                    num_readonly_signed_accounts: 0,
+                    num_readonly_unsigned_accounts: 0,
+                }),
+                account_keys: account_keys.into_iter().map(pubkey_bytes).collect(),
+                recent_blockhash: vec![0; 32],
+                instructions: vec![CompiledInstruction {
+                    program_id_index: program_idx as u32,
+                    accounts: ix_accounts,
+                    data: create_v2_data(),
+                }],
+                versioned: true,
+                address_table_lookups: Vec::new(),
+            }),
+        };
+        (meta, Some(tx))
+    }
+
+    fn ix_accounts_with_quote_tail(account_len: usize, quote_idx: u8) -> Vec<u8> {
+        let mut accounts: Vec<u8> = (0..account_len).map(|i| i as u8).collect();
+        accounts[16] = quote_idx;
+        accounts[17] = quote_idx + 1;
+        accounts[18] = quote_idx + 2;
+        accounts
+    }
+
+    fn parse_create_v2_quote_from_grpc(
+        meta: &TransactionStatusMeta,
+        tx: &Option<Transaction>,
+    ) -> Pubkey {
+        let events = parse_instructions_enhanced(
+            meta,
+            tx,
+            Signature::default(),
+            123,
+            0,
+            Some(456),
+            789,
+            None,
+        );
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            DexEvent::PumpFunCreate(e) => {
+                assert_eq!(e.ix_name, "create_v2");
+                e.quote_mint
+            }
+            DexEvent::PumpFunCreateV2(e) => {
+                assert_eq!(e.ix_name, "create_v2");
+                e.quote_mint
+            }
+            other => panic!("expected PumpFun create_v2 event, got {other:?}"),
+        }
+    }
 
     #[test]
     fn test_should_parse_instructions() {
@@ -598,5 +709,64 @@ mod tests {
         } else {
             panic!("Expected PumpFunTrade event");
         }
+    }
+
+    #[test]
+    fn grpc_pumpfun_create_v2_resolves_alt_loaded_quote_mint_cases() {
+        let token_program = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
+        let cases = [
+            (
+                "3MVawF6/2dZA style 19-account USDC quote in ALT",
+                30usize,
+                29u8,
+                19usize,
+                30u8,
+                usdc_mint(),
+            ),
+            (
+                "3jWGF style 19-account WSOL quote in ALT",
+                30usize,
+                29u8,
+                19usize,
+                30u8,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "oY9/4h9 style 20-account WSOL quote in ALT",
+                27usize,
+                26u8,
+                20usize,
+                27u8,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+        ];
+
+        for (name, static_len, program_idx, account_len, quote_idx, expected_quote) in cases {
+            let quote_vault = Pubkey::new_unique();
+            let (meta, tx) = grpc_pumpfun_create_v2_tx(
+                static_len,
+                program_idx,
+                ix_accounts_with_quote_tail(account_len, quote_idx),
+                vec![
+                    (quote_idx as usize, expected_quote),
+                    (quote_idx as usize + 1, quote_vault),
+                    (quote_idx as usize + 2, token_program),
+                ],
+            );
+
+            let quote = parse_create_v2_quote_from_grpc(&meta, &tx);
+
+            assert_eq!(quote, expected_quote, "{name}");
+        }
+    }
+
+    #[test]
+    fn grpc_pumpfun_create_v2_16_account_uses_sol_sentinel_without_quote_tail() {
+        let accounts: Vec<u8> = (0..16).map(|i| i as u8).collect();
+        let (meta, tx) = grpc_pumpfun_create_v2_tx(17, 16, accounts, Vec::new());
+
+        let quote = parse_create_v2_quote_from_grpc(&meta, &tx);
+
+        assert_eq!(quote, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
     }
 }
