@@ -35,30 +35,20 @@ pub mod discriminators {
 pub const PROGRAM_ID_PUBKEY: Pubkey = program_ids::PUMPFUN_PROGRAM_ID;
 
 #[inline(always)]
-fn create_v2_quote_mint_from_accounts(accounts: &[Pubkey]) -> Pubkey {
-    if accounts.len() >= 19 {
-        normalize_pumpfun_quote_mint(get_account(accounts, 16).unwrap_or_default())
-    } else {
-        PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
+fn create_v2_quote_accounts_from_accounts(accounts: &[Pubkey]) -> (Pubkey, Pubkey, Pubkey) {
+    if accounts.len() < 19 {
+        return (PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, Pubkey::default(), Pubkey::default());
     }
-}
-
-#[inline(always)]
-fn create_v2_quote_vault_from_accounts(accounts: &[Pubkey]) -> Pubkey {
-    if accounts.len() >= 19 {
-        get_account(accounts, 17).unwrap_or_default()
-    } else {
-        Pubkey::default()
+    let quote_mint = get_account(accounts, 16).unwrap_or_default();
+    let quote_token_program = get_account(accounts, 18).unwrap_or_default();
+    if quote_mint == Pubkey::default() || quote_token_program == Pubkey::default() {
+        return (Pubkey::default(), Pubkey::default(), Pubkey::default());
     }
-}
-
-#[inline(always)]
-fn create_v2_quote_token_program_from_accounts(accounts: &[Pubkey]) -> Pubkey {
-    if accounts.len() >= 19 {
-        get_account(accounts, 18).unwrap_or_default()
-    } else {
-        Pubkey::default()
-    }
+    (
+        normalize_pumpfun_quote_mint(quote_mint),
+        get_account(accounts, 17).unwrap_or_default(),
+        quote_token_program,
+    )
 }
 
 /// Main PumpFun instruction parser
@@ -705,6 +695,8 @@ fn parse_create_v2_instruction(
     let mint = acc[0];
     let bonding_curve = acc[2];
     let user = acc[5];
+    let (quote_mint, quote_vault, quote_token_program) =
+        create_v2_quote_accounts_from_accounts(accounts);
 
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
@@ -733,9 +725,9 @@ fn parse_create_v2_instruction(
         program: acc[15],
         is_mayhem_mode,
         is_cashback_enabled,
-        quote_mint: create_v2_quote_mint_from_accounts(accounts),
-        quote_vault: create_v2_quote_vault_from_accounts(accounts),
-        quote_token_program: create_v2_quote_token_program_from_accounts(accounts),
+        quote_mint,
+        quote_vault,
+        quote_token_program,
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))

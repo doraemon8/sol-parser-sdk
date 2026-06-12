@@ -256,33 +256,23 @@ fn quote_mint_from_shred_v2_account(quote_mint: Option<Pubkey>) -> Pubkey {
 }
 
 #[inline(always)]
-fn create_v2_quote_mint_from_shred_accounts(
+fn create_v2_quote_accounts_from_shred_accounts(
     accounts_len: usize,
     get_account: impl Fn(usize) -> Option<Pubkey>,
-) -> Pubkey {
-    if accounts_len >= 19 {
-        let quote_mint = get_account(16).unwrap_or_default();
-        if quote_mint == Pubkey::default() {
-            Pubkey::default()
-        } else {
-            quote_mint_from_shred_v2_account(Some(quote_mint))
-        }
-    } else {
-        PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
+) -> (Pubkey, Pubkey, Pubkey) {
+    if accounts_len < 19 {
+        return (PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, Pubkey::default(), Pubkey::default());
     }
-}
-
-#[inline(always)]
-fn create_v2_quote_account_from_shred_accounts(
-    accounts_len: usize,
-    index: usize,
-    get_account: impl Fn(usize) -> Option<Pubkey>,
-) -> Pubkey {
-    if accounts_len >= 19 {
-        get_account(index).unwrap_or_default()
-    } else {
-        Pubkey::default()
+    let quote_mint = get_account(16).unwrap_or_default();
+    let quote_token_program = get_account(18).unwrap_or_default();
+    if quote_mint == Pubkey::default() || quote_token_program == Pubkey::default() {
+        return (Pubkey::default(), Pubkey::default(), Pubkey::default());
     }
+    (
+        quote_mint_from_shred_v2_account(Some(quote_mint)),
+        get_account(17).unwrap_or_default(),
+        quote_token_program,
+    )
 }
 
 #[inline]
@@ -963,6 +953,8 @@ fn parse_create_v2_instruction(
     };
 
     let mayhem_program_id = get_account(9).unwrap_or_default();
+    let (quote_mint, quote_vault, quote_token_program) =
+        create_v2_quote_accounts_from_shred_accounts(accounts.len(), get_account);
 
     Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
         metadata,
@@ -988,13 +980,9 @@ fn parse_create_v2_instruction(
         program: get_account(15).unwrap_or_default(),
         is_mayhem_mode,
         is_cashback_enabled,
-        quote_mint: create_v2_quote_mint_from_shred_accounts(accounts.len(), get_account),
-        quote_vault: create_v2_quote_account_from_shred_accounts(accounts.len(), 17, get_account),
-        quote_token_program: create_v2_quote_account_from_shred_accounts(
-            accounts.len(),
-            18,
-            get_account,
-        ),
+        quote_mint,
+        quote_vault,
+        quote_token_program,
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))
@@ -1590,6 +1578,7 @@ mod tests {
     use solana_sdk::message::{v0, MessageHeader};
     use solana_sdk::signature::Signature;
     use solana_sdk::transaction::VersionedTransaction;
+    use std::str::FromStr;
 
     fn unique_accounts(n: usize) -> Vec<Pubkey> {
         (0..n).map(|_| Pubkey::new_unique()).collect()
@@ -1599,10 +1588,21 @@ mod tests {
         (0..n).map(|i| i as u8).collect()
     }
 
+    fn pk(s: &str) -> Pubkey {
+        Pubkey::from_str(s).unwrap()
+    }
+
     fn amount_data(first: u64, second: u64) -> Vec<u8> {
         let mut data = Vec::with_capacity(16);
         data.extend_from_slice(&first.to_le_bytes());
         data.extend_from_slice(&second.to_le_bytes());
+        data
+    }
+
+    fn instruction_data(discriminator: [u8; 8], first: u64, second: u64) -> Vec<u8> {
+        let mut data = Vec::with_capacity(24);
+        data.extend_from_slice(&discriminator);
+        data.extend_from_slice(&amount_data(first, second));
         data
     }
 
@@ -1657,6 +1657,46 @@ mod tests {
                 address_table_lookups: Vec::new(),
             }),
         }
+    }
+
+    fn v0_tx_with_instructions(
+        account_keys: Vec<Pubkey>,
+        instructions: Vec<(u8, Vec<u8>, Vec<u8>)>,
+    ) -> VersionedTransaction {
+        VersionedTransaction {
+            signatures: vec![Signature::default()],
+            message: VersionedMessage::V0(v0::Message {
+                header: MessageHeader {
+                    num_required_signatures: 1,
+                    num_readonly_signed_accounts: 0,
+                    num_readonly_unsigned_accounts: 0,
+                },
+                account_keys,
+                recent_blockhash: Hash::default(),
+                instructions: instructions
+                    .into_iter()
+                    .map(|(program_id_index, accounts, data)| {
+                        CompiledInstruction::new_from_raw_parts(program_id_index, data, accounts)
+                    })
+                    .collect(),
+                address_table_lookups: Vec::new(),
+            }),
+        }
+    }
+
+    fn parse_shred_events_like_client(tx: &VersionedTransaction) -> Vec<DexEvent> {
+        let mut events = Vec::new();
+        parse_transaction_dex_events_with_filter(
+            tx,
+            Signature::default(),
+            123,
+            0,
+            456,
+            None,
+            &mut events,
+        );
+        crate::core::pumpfun_fee_enrich::enrich_pumpfun_same_tx_post_merge(&mut events);
+        events
     }
 
     #[test]
@@ -1842,6 +1882,158 @@ mod tests {
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn shred_pumpfun_create_v2_full_accounts_cover_real_quote_cases() {
+        // These cases come from user-provided mainnet signatures:
+        // 3MVawF6...: create_v2 accounts[16] = EPjF... (USDC)
+        // 2dZAucK...: create_v2 accounts[16] = EPjF... (USDC, 19 accounts)
+        // oY9YQbie... and 4h9kYj...: create_v2 accounts[16] = So111...12 (WSOL, 20 accounts)
+        let cases = [
+            (
+                "usdc 19-account create_v2",
+                19usize,
+                pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+            ),
+            ("wsol 19-account create_v2", 19usize, PUMPFUN_WSOL_QUOTE_MINT),
+            ("wsol 20-account create_v2", 20usize, PUMPFUN_WSOL_QUOTE_MINT),
+        ];
+
+        for (name, account_len, expected_quote) in cases {
+            let mut static_keys = vec![Pubkey::new_unique(); account_len + 1];
+            let program_idx = account_len as u8;
+            static_keys[program_idx as usize] = PROGRAM_ID_PUBKEY;
+            static_keys[16] = expected_quote;
+            if account_len > 18 {
+                static_keys[18] = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
+            }
+            let tx = v0_tx(program_idx, static_keys, ix_accounts(account_len), create_v2_data());
+
+            let events = parse_shred_events_like_client(&tx);
+
+            assert_eq!(events.len(), 1, "{name}");
+            match &events[0] {
+                DexEvent::PumpFunCreate(event) => {
+                    assert_eq!(event.ix_name, "create_v2", "{name}");
+                    assert_eq!(event.quote_mint, expected_quote, "{name}");
+                }
+                other => panic!("{name}: expected PumpFunCreate, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_create_v2_alt_quote_index_is_not_guessable() {
+        // Real compiled-index pattern from the user-provided signatures:
+        // - 3MVawF6... create_v2 has 19 accounts, but accounts[16] is global idx 30 (ALT).
+        // - 2dZAucK... create_v2 has 19 accounts, but accounts[16] is global idx 33 (ALT).
+        // - oY9YQbie... create_v2 has 20 accounts, but accounts[16] is global idx 27 (ALT).
+        //
+        // ShredStream currently receives a VersionedTransaction and only has static_account_keys().
+        // ALT-loaded addresses are not in that list, so the hot path must not invent USDC/WSOL.
+        for (name, static_len, program_idx, quote_global_idx, account_len) in [
+            ("usdc 19-account quote in ALT", 19usize, 16u8, 30u8, 19usize),
+            ("usdc 19-account quote in ALT alt2", 19usize, 15u8, 33u8, 19usize),
+            ("wsol 20-account quote in ALT", 15usize, 12u8, 27u8, 20usize),
+        ] {
+            let mut static_keys = vec![Pubkey::new_unique(); static_len];
+            static_keys[program_idx as usize] = PROGRAM_ID_PUBKEY;
+            let mut ix_accounts = ix_accounts(account_len);
+            ix_accounts[16] = quote_global_idx;
+            let tx = v0_tx(program_idx, static_keys, ix_accounts, create_v2_data());
+
+            let events = parse_shred_events_like_client(&tx);
+
+            assert_eq!(events.len(), 1, "{name}");
+            match &events[0] {
+                DexEvent::PumpFunCreate(event) => {
+                    assert_eq!(event.ix_name, "create_v2", "{name}");
+                    assert_eq!(event.quote_mint, Pubkey::default(), "{name}");
+                    assert_eq!(event.quote_vault, Pubkey::default(), "{name}");
+                    assert_eq!(event.quote_token_program, Pubkey::default(), "{name}");
+                }
+                other => panic!("{name}: expected PumpFunCreate, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_create_v2_alt_quote_can_be_recovered_from_static_v2_trade() {
+        let usdc = pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+        let mint = Pubkey::new_unique();
+        let mut static_keys = vec![Pubkey::new_unique(); 35];
+        static_keys[0] = mint;
+        static_keys[16] = PROGRAM_ID_PUBKEY;
+        static_keys[30] = usdc;
+
+        let mut create_accounts = ix_accounts(19);
+        create_accounts[0] = 0;
+        create_accounts[15] = 16;
+        create_accounts[16] = 40; // ALT in create_v2, unavailable to Shred static-only parser.
+
+        let mut buy_v2_accounts = ix_accounts(27);
+        buy_v2_accounts[1] = 0; // mint
+        buy_v2_accounts[2] = 30; // quote mint is static in the follow-up v2 trade.
+        buy_v2_accounts[26] = 16;
+
+        let tx = v0_tx_with_instructions(
+            static_keys,
+            vec![
+                (16, create_accounts, create_v2_data()),
+                (16, buy_v2_accounts, instruction_data(discriminators::BUY_V2, 1, 2)),
+            ],
+        );
+
+        let events = parse_shred_events_like_client(&tx);
+
+        let create = events
+            .iter()
+            .find_map(|event| match event {
+                DexEvent::PumpFunCreate(c) => Some(c),
+                _ => None,
+            })
+            .expect("create event");
+        assert_eq!(create.quote_mint, usdc);
+    }
+
+    #[test]
+    fn shred_pumpfun_create_v2_alt_quote_stays_unknown_when_trade_quote_is_alt_too() {
+        // Real compiled-index pattern from 3MVawF6... / 2dZAucK...:
+        // create_v2 accounts[16] and follow-up buy_v2 accounts[2] both point to ALT-loaded USDC.
+        let mint = Pubkey::new_unique();
+        let mut static_keys = vec![Pubkey::new_unique(); 19];
+        static_keys[0] = mint;
+        static_keys[16] = PROGRAM_ID_PUBKEY;
+
+        let mut create_accounts = ix_accounts(19);
+        create_accounts[0] = 0;
+        create_accounts[15] = 16;
+        create_accounts[16] = 30;
+
+        let mut buy_v2_accounts = ix_accounts(27);
+        buy_v2_accounts[1] = 0;
+        buy_v2_accounts[2] = 30;
+        buy_v2_accounts[26] = 16;
+
+        let tx = v0_tx_with_instructions(
+            static_keys,
+            vec![
+                (16, create_accounts, create_v2_data()),
+                (16, buy_v2_accounts, instruction_data(discriminators::BUY_V2, 1, 2)),
+            ],
+        );
+
+        let events = parse_shred_events_like_client(&tx);
+
+        let create = events
+            .iter()
+            .find_map(|event| match event {
+                DexEvent::PumpFunCreate(c) => Some(c),
+                _ => None,
+            })
+            .expect("create event");
+        assert_eq!(create.quote_mint, Pubkey::default());
     }
 
     #[test]
