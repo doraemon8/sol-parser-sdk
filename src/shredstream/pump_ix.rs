@@ -255,6 +255,23 @@ fn quote_mint_from_shred_v2_account(quote_mint: Option<Pubkey>) -> Pubkey {
     normalize_pumpfun_quote_mint(quote_mint.unwrap_or_default())
 }
 
+#[inline(always)]
+fn create_v2_quote_mint_from_shred_accounts(
+    accounts_len: usize,
+    get_account: impl Fn(usize) -> Option<Pubkey>,
+) -> Pubkey {
+    if accounts_len >= 19 {
+        let quote_mint = get_account(16).unwrap_or_default();
+        if quote_mint == Pubkey::default() {
+            Pubkey::default()
+        } else {
+            quote_mint_from_shred_v2_account(Some(quote_mint))
+        }
+    } else {
+        PUMPFUN_SOLSCAN_SOL_QUOTE_MINT
+    }
+}
+
 #[inline]
 fn scan_create_mint_from_ix(
     program_id_index: u8,
@@ -958,7 +975,7 @@ fn parse_create_v2_instruction(
         program: get_account(15).unwrap_or_default(),
         is_mayhem_mode,
         is_cashback_enabled,
-        quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+        quote_mint: create_v2_quote_mint_from_shred_accounts(accounts.len(), get_account),
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))
@@ -1548,6 +1565,7 @@ fn parse_sell_v2_instruction(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::events::PUMPFUN_WSOL_QUOTE_MINT;
     use solana_sdk::hash::Hash;
     use solana_sdk::message::compiled_instruction::CompiledInstruction;
     use solana_sdk::message::{v0, MessageHeader};
@@ -1581,6 +1599,18 @@ mod tests {
         str_arg("ALT", &mut data);
         str_arg("https://example.invalid/alt.json", &mut data);
         data.extend_from_slice(Pubkey::new_unique().as_ref());
+        data
+    }
+
+    fn create_v2_data() -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&discriminators::CREATE_V2);
+        str_arg("Alt Coin", &mut data);
+        str_arg("ALT", &mut data);
+        str_arg("https://example.invalid/alt.json", &mut data);
+        data.extend_from_slice(Pubkey::new_unique().as_ref());
+        data.push(1);
+        data.push(1);
         data
     }
 
@@ -1712,6 +1742,84 @@ mod tests {
                 assert_eq!(event.token_program, token_program);
                 assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
                 assert_eq!(event.ix_name, "create");
+            }
+            other => panic!("expected PumpFunCreate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_create_v2_uses_appended_quote_mint_only_for_19_accounts() {
+        let mut static_keys = vec![Pubkey::new_unique(); 20];
+        static_keys[19] = PROGRAM_ID_PUBKEY;
+        static_keys[16] = PUMPFUN_WSOL_QUOTE_MINT;
+        let tx = v0_tx(19, static_keys, ix_accounts(19), create_v2_data());
+        let mut events = Vec::new();
+
+        parse_transaction_dex_events_with_filter(
+            &tx,
+            Signature::default(),
+            123,
+            0,
+            456,
+            None,
+            &mut events,
+        );
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            DexEvent::PumpFunCreate(event) => {
+                assert_eq!(event.ix_name, "create_v2");
+                assert_eq!(event.quote_mint, PUMPFUN_WSOL_QUOTE_MINT);
+            }
+            other => panic!("expected PumpFunCreate, got {other:?}"),
+        }
+
+        let mut static_keys = vec![Pubkey::new_unique(); 20];
+        static_keys[19] = PROGRAM_ID_PUBKEY;
+        let mut alt_ix_accounts = ix_accounts(19);
+        alt_ix_accounts[16] = 42;
+        let tx = v0_tx(19, static_keys, alt_ix_accounts, create_v2_data());
+        events.clear();
+
+        parse_transaction_dex_events_with_filter(
+            &tx,
+            Signature::default(),
+            123,
+            0,
+            456,
+            None,
+            &mut events,
+        );
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            DexEvent::PumpFunCreate(event) => {
+                assert_eq!(event.ix_name, "create_v2");
+                assert_eq!(event.quote_mint, Pubkey::default());
+            }
+            other => panic!("expected PumpFunCreate, got {other:?}"),
+        }
+
+        let mut static_keys = vec![Pubkey::new_unique(); 17];
+        static_keys[16] = PROGRAM_ID_PUBKEY;
+        let tx = v0_tx(16, static_keys, ix_accounts(16), create_v2_data());
+        events.clear();
+
+        parse_transaction_dex_events_with_filter(
+            &tx,
+            Signature::default(),
+            123,
+            0,
+            456,
+            None,
+            &mut events,
+        );
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            DexEvent::PumpFunCreate(event) => {
+                assert_eq!(event.ix_name, "create_v2");
+                assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }

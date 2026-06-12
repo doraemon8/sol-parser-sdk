@@ -17,6 +17,21 @@ fn pump_trade_uses_v2_layout(e: &PumpFunTradeEvent, get: &AccountGetter<'_>) -> 
         || account_at_matches_mint(e, get, 1)
 }
 
+#[inline(always)]
+fn fill_create_v2_quote_mint_if_appended(to: &mut Pubkey, get: &AccountGetter<'_>) {
+    if *to == Pubkey::default() || is_pumpfun_solscan_sol_quote_mint(*to) {
+        if get(18) == Pubkey::default() {
+            return;
+        }
+        let quote_mint = get(16);
+        if quote_mint != Pubkey::default()
+            && quote_mint != crate::instr::program_ids::PUMPFUN_PROGRAM_ID
+        {
+            *to = normalize_pumpfun_quote_mint(quote_mint);
+        }
+    }
+}
+
 /// 填充 PumpFun Trade 事件账户
 ///
 /// PumpFun Buy/Sell instruction account mapping (from pumpfun.json IDL):
@@ -208,6 +223,7 @@ pub fn fill_create_accounts(e: &mut PumpFunCreateTokenEvent, get: &AccountGetter
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program.
+/// Quote-pool variant appends: 16 quote_mint, 17 quote_vault, 18 quote_token_program.
 pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &AccountGetter<'_>) {
     if e.mint == Pubkey::default() {
         e.mint = get(0);
@@ -257,6 +273,7 @@ pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &Accou
     if e.program == Pubkey::default() {
         e.program = get(15);
     }
+    fill_create_v2_quote_mint_if_appended(&mut e.quote_mint, get);
 }
 
 /// 填充 PumpFun CreateV2 事件账户
@@ -265,6 +282,7 @@ pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &Accou
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program.
+/// Quote-pool variant appends: 16 quote_mint, 17 quote_vault, 18 quote_token_program.
 pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountGetter<'_>) {
     if e.mint == Pubkey::default() {
         e.mint = get(0);
@@ -314,6 +332,7 @@ pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountG
     if e.program == Pubkey::default() {
         e.program = get(15);
     }
+    fill_create_v2_quote_mint_if_appended(&mut e.quote_mint, get);
 }
 
 /// 填充 PumpFun Migrate 事件账户
@@ -381,6 +400,39 @@ mod tests {
         let mut e = PumpFunTradeEvent { fee_recipient: Pubkey::default(), ..Default::default() };
         fill_trade_accounts(&mut e, &get);
         assert_eq!(e.fee_recipient, fee);
+    }
+
+    #[test]
+    fn fill_create_accounts_from_v2_sets_appended_quote_mint_only_when_tail_exists() {
+        let quote_mint = PUMPFUN_WSOL_QUOTE_MINT;
+        let get_with_tail = |i: usize| -> Pubkey {
+            match i {
+                16 => quote_mint,
+                18 => Pubkey::new_from_array([18u8; 32]),
+                _ => Pubkey::default(),
+            }
+        };
+        let mut with_tail = PumpFunCreateTokenEvent {
+            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+            ..Default::default()
+        };
+
+        fill_create_accounts_from_v2(&mut with_tail, &get_with_tail);
+        assert_eq!(with_tail.quote_mint, quote_mint);
+
+        let get_without_tail = |i: usize| -> Pubkey {
+            match i {
+                16 => quote_mint,
+                _ => Pubkey::default(),
+            }
+        };
+        let mut without_tail = PumpFunCreateTokenEvent {
+            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
+            ..Default::default()
+        };
+
+        fill_create_accounts_from_v2(&mut without_tail, &get_without_tail);
+        assert_eq!(without_tail.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
     }
 
     #[test]
