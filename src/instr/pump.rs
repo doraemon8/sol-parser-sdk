@@ -34,21 +34,6 @@ pub mod discriminators {
 /// PumpFun Program ID
 pub const PROGRAM_ID_PUBKEY: Pubkey = program_ids::PUMPFUN_PROGRAM_ID;
 
-#[inline(always)]
-fn create_v2_quote_mint_from_account(accounts: &[Pubkey]) -> Pubkey {
-    normalize_pumpfun_quote_mint(get_account(accounts, 16).unwrap_or_default())
-}
-
-#[inline(always)]
-fn create_v2_quote_vault_from_account(accounts: &[Pubkey]) -> Pubkey {
-    get_account(accounts, 17).unwrap_or_default()
-}
-
-#[inline(always)]
-fn create_v2_quote_token_program_from_account(accounts: &[Pubkey]) -> Pubkey {
-    get_account(accounts, 18).unwrap_or_default()
-}
-
 /// Main PumpFun instruction parser
 ///
 /// Outer instructions (8-byte discriminator): CREATE, CREATE_V2 从指令解析并返回事件；
@@ -643,7 +628,6 @@ fn parse_create_instruction(
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program. 共 16 个账户。
-/// Newer quote pools append: 16 quote_mint, 17 quote_vault, 18 quote_token_program.
 /// Instruction args (after disc): name, symbol, uri, creator, is_mayhem_mode (`bool`), is_cashback_enabled (`OptionBool` = 1-byte bool on wire)。
 /// Guard: return None when accounts.len() < 16 to avoid index out of bounds (e.g. ALT-loaded tx).
 fn parse_create_v2_instruction(
@@ -660,9 +644,6 @@ fn parse_create_v2_instruction(
         return None;
     }
     let acc = &accounts[0..CREATE_V2_MIN_ACCOUNTS];
-    let quote_mint = create_v2_quote_mint_from_account(accounts);
-    let quote_vault = create_v2_quote_vault_from_account(accounts);
-    let quote_token_program = create_v2_quote_token_program_from_account(accounts);
 
     // IDL args: name, symbol, uri, creator, is_mayhem_mode, is_cashback_enabled — mint/bc/user 仅在 accounts
     let mut offset = 0usize;
@@ -724,9 +705,7 @@ fn parse_create_v2_instruction(
         program: acc[15],
         is_mayhem_mode,
         is_cashback_enabled,
-        quote_mint,
-        quote_vault,
-        quote_token_program,
+        quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))
@@ -848,26 +827,6 @@ mod tests {
                 assert!(c.is_mayhem_mode);
                 assert!(c.is_cashback_enabled);
                 assert_eq!(c.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
-            }
-            other => panic!("expected canonical PumpFunCreate, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn pumpfun_create_v2_instruction_uses_appended_quote_mint_account() {
-        let acc = accounts(19);
-        let quote_vault = acc[17];
-        let quote_token_program = acc[18];
-        let event =
-            parse_instruction(&create_v2_data(), &acc, Signature::default(), 1, 0, None, 99)
-                .expect("event");
-
-        match event {
-            DexEvent::PumpFunCreate(c) => {
-                assert_eq!(c.ix_name, "create_v2");
-                assert_eq!(c.quote_mint, acc[16]);
-                assert_eq!(c.quote_vault, quote_vault);
-                assert_eq!(c.quote_token_program, quote_token_program);
             }
             other => panic!("expected canonical PumpFunCreate, got {other:?}"),
         }

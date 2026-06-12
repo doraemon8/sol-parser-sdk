@@ -108,22 +108,16 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # 在 Cargo.toml 中添加
-sol-parser-sdk = "0.5.14"
+sol-parser-sdk = "0.5.13"
 ```
 
 或使用零拷贝解析器（最高性能）：
 
 ```toml
-sol-parser-sdk = { version = "0.5.14", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.5.13", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### 发布说明
-
-#### v0.5.14
-
-- 修复 Pump.fun `create_v2` quote 池账户映射：追加账户 `16`、`17`、`18` 现在会正确填充 `quote_mint`、`quote_vault`、`quote_token_program`。
-- gRPC、RPC 指令解析、ShredStream 的 canonical Pump.fun create 事件都会保留 USDC quote mint。
-- 扩展 Pump.fun create/create_v2 事件结构、merge 和 account-filler 路径，log 与 instruction 数据合并时不会再丢 quote 侧字段。
 
 #### v0.5.13
 

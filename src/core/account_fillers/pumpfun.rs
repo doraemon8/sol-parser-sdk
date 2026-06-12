@@ -17,11 +17,6 @@ fn pump_trade_uses_v2_layout(e: &PumpFunTradeEvent, get: &AccountGetter<'_>) -> 
         || account_at_matches_mint(e, get, 1)
 }
 
-#[inline(always)]
-fn create_accounts_use_v2_layout(get: &AccountGetter<'_>) -> bool {
-    get(15) == crate::instr::program_ids::PUMPFUN_PROGRAM_ID
-}
-
 /// 填充 PumpFun Trade 事件账户
 ///
 /// PumpFun Buy/Sell instruction account mapping (from pumpfun.json IDL):
@@ -172,11 +167,6 @@ pub fn fill_trade_accounts(e: &mut PumpFunTradeEvent, get: &AccountGetter<'_>) {
 /// 12: eventAuthority
 /// 13: program
 pub fn fill_create_accounts(e: &mut PumpFunCreateTokenEvent, get: &AccountGetter<'_>) {
-    if create_accounts_use_v2_layout(get) {
-        fill_create_accounts_from_v2(e, get);
-        return;
-    }
-
     if e.mint == Pubkey::default() {
         e.mint = get(0);
     }
@@ -218,11 +208,7 @@ pub fn fill_create_accounts(e: &mut PumpFunCreateTokenEvent, get: &AccountGetter
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program.
-/// Newer quote pools append: 16 quote_mint, 17 quote_vault, 18 quote_token_program.
 pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &AccountGetter<'_>) {
-    if e.ix_name.is_empty() || e.ix_name == "create" {
-        e.ix_name = "create_v2".to_string();
-    }
     if e.mint == Pubkey::default() {
         e.mint = get(0);
     }
@@ -270,18 +256,6 @@ pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &Accou
     }
     if e.program == Pubkey::default() {
         e.program = get(15);
-    }
-    if e.quote_mint == Pubkey::default() || is_pumpfun_solscan_sol_quote_mint(e.quote_mint) {
-        let quote_mint = normalize_pumpfun_quote_mint(get(16));
-        if quote_mint != Pubkey::default() {
-            e.quote_mint = quote_mint;
-        }
-    }
-    if e.quote_vault == Pubkey::default() {
-        e.quote_vault = get(17);
-    }
-    if e.quote_token_program == Pubkey::default() {
-        e.quote_token_program = get(18);
     }
 }
 
@@ -291,11 +265,7 @@ pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &Accou
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program.
-/// Newer quote pools append: 16 quote_mint, 17 quote_vault, 18 quote_token_program.
 pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountGetter<'_>) {
-    if e.ix_name.is_empty() {
-        e.ix_name = "create_v2".to_string();
-    }
     if e.mint == Pubkey::default() {
         e.mint = get(0);
     }
@@ -343,18 +313,6 @@ pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountG
     }
     if e.program == Pubkey::default() {
         e.program = get(15);
-    }
-    if e.quote_mint == Pubkey::default() || is_pumpfun_solscan_sol_quote_mint(e.quote_mint) {
-        let quote_mint = normalize_pumpfun_quote_mint(get(16));
-        if quote_mint != Pubkey::default() {
-            e.quote_mint = quote_mint;
-        }
-    }
-    if e.quote_vault == Pubkey::default() {
-        e.quote_vault = get(17);
-    }
-    if e.quote_token_program == Pubkey::default() {
-        e.quote_token_program = get(18);
     }
 }
 
@@ -423,98 +381,6 @@ mod tests {
         let mut e = PumpFunTradeEvent { fee_recipient: Pubkey::default(), ..Default::default() };
         fill_trade_accounts(&mut e, &get);
         assert_eq!(e.fee_recipient, fee);
-    }
-
-    #[test]
-    fn fill_create_accounts_from_v2_sets_appended_quote_mint() {
-        let quote_mint = Pubkey::new_from_array([16u8; 32]);
-        let quote_vault = Pubkey::new_from_array([17u8; 32]);
-        let quote_token_program = Pubkey::new_from_array([18u8; 32]);
-        let get = |i: usize| -> Pubkey {
-            match i {
-                16 => quote_mint,
-                17 => quote_vault,
-                18 => quote_token_program,
-                _ => Pubkey::default(),
-            }
-        };
-        let mut e = PumpFunCreateTokenEvent {
-            ix_name: "create_v2".to_string(),
-            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
-            ..Default::default()
-        };
-
-        fill_create_accounts_from_v2(&mut e, &get);
-
-        assert_eq!(e.quote_mint, quote_mint);
-        assert_eq!(e.quote_vault, quote_vault);
-        assert_eq!(e.quote_token_program, quote_token_program);
-    }
-
-    #[test]
-    fn fill_create_v2_accounts_sets_appended_quote_mint() {
-        let quote_mint = Pubkey::new_from_array([16u8; 32]);
-        let quote_vault = Pubkey::new_from_array([17u8; 32]);
-        let quote_token_program = Pubkey::new_from_array([18u8; 32]);
-        let get = |i: usize| -> Pubkey {
-            match i {
-                16 => quote_mint,
-                17 => quote_vault,
-                18 => quote_token_program,
-                _ => Pubkey::default(),
-            }
-        };
-        let mut e =
-            PumpFunCreateV2TokenEvent { quote_mint: Pubkey::default(), ..Default::default() };
-
-        fill_create_v2_accounts(&mut e, &get);
-
-        assert_eq!(e.quote_mint, quote_mint);
-        assert_eq!(e.quote_vault, quote_vault);
-        assert_eq!(e.quote_token_program, quote_token_program);
-    }
-
-    #[test]
-    fn fill_create_accounts_auto_detects_v2_layout() {
-        let user = Pubkey::new_from_array([5u8; 32]);
-        let system_program = Pubkey::new_from_array([6u8; 32]);
-        let token_program = Pubkey::new_from_array([7u8; 32]);
-        let associated_token_program = Pubkey::new_from_array([8u8; 32]);
-        let event_authority = Pubkey::new_from_array([14u8; 32]);
-        let quote_mint = Pubkey::new_from_array([16u8; 32]);
-        let quote_vault = Pubkey::new_from_array([17u8; 32]);
-        let quote_token_program = Pubkey::new_from_array([18u8; 32]);
-        let get = |i: usize| -> Pubkey {
-            match i {
-                5 => user,
-                6 => system_program,
-                7 => token_program,
-                8 => associated_token_program,
-                14 => event_authority,
-                15 => crate::instr::program_ids::PUMPFUN_PROGRAM_ID,
-                16 => quote_mint,
-                17 => quote_vault,
-                18 => quote_token_program,
-                _ => Pubkey::default(),
-            }
-        };
-        let mut e = PumpFunCreateTokenEvent {
-            quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
-            ..Default::default()
-        };
-
-        fill_create_accounts(&mut e, &get);
-
-        assert_eq!(e.ix_name, "create_v2");
-        assert_eq!(e.user, user);
-        assert_eq!(e.system_program, system_program);
-        assert_eq!(e.token_program, token_program);
-        assert_eq!(e.associated_token_program, associated_token_program);
-        assert_eq!(e.event_authority, event_authority);
-        assert_eq!(e.program, crate::instr::program_ids::PUMPFUN_PROGRAM_ID);
-        assert_eq!(e.quote_mint, quote_mint);
-        assert_eq!(e.quote_vault, quote_vault);
-        assert_eq!(e.quote_token_program, quote_token_program);
     }
 
     #[test]

@@ -101,11 +101,7 @@ pub fn fill_accounts_with_owned_keys(
                 program_invokes,
                 &PUMPFUN_PROGRAM,
                 |get: &AccountGetter<'_>| {
-                    if e.ix_name == "create_v2" {
-                        account_fillers::pumpfun::fill_create_accounts_from_v2(e, get);
-                    } else {
-                        account_fillers::pumpfun::fill_create_accounts(e, get);
-                    }
+                    account_fillers::pumpfun::fill_create_accounts(e, get);
                 }
             );
         }

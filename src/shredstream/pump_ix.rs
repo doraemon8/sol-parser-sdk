@@ -255,27 +255,6 @@ fn quote_mint_from_shred_v2_account(quote_mint: Option<Pubkey>) -> Pubkey {
     normalize_pumpfun_quote_mint(quote_mint.unwrap_or_default())
 }
 
-#[inline(always)]
-fn create_v2_quote_mint_from_shred_accounts(
-    get_account: impl Fn(usize) -> Option<Pubkey>,
-) -> Pubkey {
-    quote_mint_from_shred_v2_account(get_account(16))
-}
-
-#[inline(always)]
-fn create_v2_quote_vault_from_shred_accounts(
-    get_account: impl Fn(usize) -> Option<Pubkey>,
-) -> Pubkey {
-    get_account(17).unwrap_or_default()
-}
-
-#[inline(always)]
-fn create_v2_quote_token_program_from_shred_accounts(
-    get_account: impl Fn(usize) -> Option<Pubkey>,
-) -> Pubkey {
-    get_account(18).unwrap_or_default()
-}
-
 #[inline]
 fn scan_create_mint_from_ix(
     program_id_index: u8,
@@ -979,9 +958,7 @@ fn parse_create_v2_instruction(
         program: get_account(15).unwrap_or_default(),
         is_mayhem_mode,
         is_cashback_enabled,
-        quote_mint: create_v2_quote_mint_from_shred_accounts(get_account),
-        quote_vault: create_v2_quote_vault_from_shred_accounts(get_account),
-        quote_token_program: create_v2_quote_token_program_from_shred_accounts(get_account),
+        quote_mint: PUMPFUN_SOLSCAN_SOL_QUOTE_MINT,
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))
@@ -1607,18 +1584,6 @@ mod tests {
         data
     }
 
-    fn create_v2_data() -> Vec<u8> {
-        let mut data = Vec::new();
-        data.extend_from_slice(&discriminators::CREATE_V2);
-        str_arg("Alt Coin", &mut data);
-        str_arg("ALT", &mut data);
-        str_arg("https://example.invalid/alt.json", &mut data);
-        data.extend_from_slice(Pubkey::new_unique().as_ref());
-        data.push(1);
-        data.push(1);
-        data
-    }
-
     fn v0_tx(
         program_id_index: u8,
         account_keys: Vec<Pubkey>,
@@ -1747,38 +1712,6 @@ mod tests {
                 assert_eq!(event.token_program, token_program);
                 assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
                 assert_eq!(event.ix_name, "create");
-            }
-            other => panic!("expected PumpFunCreate, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn shred_pumpfun_create_v2_uses_appended_quote_mint_account() {
-        let mut static_keys = vec![Pubkey::new_unique(); 20];
-        static_keys[19] = PROGRAM_ID_PUBKEY;
-        let quote_mint = static_keys[16];
-        let quote_vault = static_keys[17];
-        let quote_token_program = static_keys[18];
-        let tx = v0_tx(19, static_keys, ix_accounts(19), create_v2_data());
-        let mut events = Vec::new();
-
-        parse_transaction_dex_events_with_filter(
-            &tx,
-            Signature::default(),
-            123,
-            0,
-            456,
-            None,
-            &mut events,
-        );
-
-        assert_eq!(events.len(), 1);
-        match &events[0] {
-            DexEvent::PumpFunCreate(event) => {
-                assert_eq!(event.ix_name, "create_v2");
-                assert_eq!(event.quote_mint, quote_mint);
-                assert_eq!(event.quote_vault, quote_vault);
-                assert_eq!(event.quote_token_program, quote_token_program);
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }

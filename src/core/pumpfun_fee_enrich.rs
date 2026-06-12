@@ -190,8 +190,6 @@ fn fill_create_v2_from_create(
     fill_pk_if_default(&mut create_v2.creator, create.creator);
     fill_pk_if_default(&mut create_v2.token_program, create.token_program);
     fill_pumpfun_quote_mint_if_default(&mut create_v2.quote_mint, create.quote_mint);
-    fill_pk_if_default(&mut create_v2.quote_vault, create.quote_vault);
-    fill_pk_if_default(&mut create_v2.quote_token_program, create.quote_token_program);
     fill_i64_if_zero(&mut create_v2.timestamp, create.timestamp);
     fill_u64_if_zero(&mut create_v2.virtual_token_reserves, create.virtual_token_reserves);
     fill_u64_if_zero(&mut create_v2.virtual_sol_reserves, create.virtual_sol_reserves);
@@ -350,8 +348,6 @@ mod tests {
         let sig = Signature::default();
         let mint = Pubkey::new_unique();
         let quote_mint = Pubkey::new_unique();
-        let quote_vault = Pubkey::new_unique();
-        let quote_token_program = Pubkey::new_unique();
         let token_program = Pubkey::new_unique();
         let meta = EventMetadata {
             signature: sig,
@@ -381,8 +377,6 @@ mod tests {
                 token_program,
                 is_cashback_enabled: true,
                 quote_mint,
-                quote_vault,
-                quote_token_program,
                 virtual_quote_reserves: 4_292_000_000,
                 ..Default::default()
             }),
@@ -392,8 +386,6 @@ mod tests {
 
         if let DexEvent::PumpFunCreateV2(c) = &events[0] {
             assert_eq!(c.quote_mint, quote_mint);
-            assert_eq!(c.quote_vault, quote_vault);
-            assert_eq!(c.quote_token_program, quote_token_program);
             assert_eq!(c.virtual_quote_reserves, 4_292_000_000);
             assert_eq!(c.token_program, token_program);
             assert!(c.is_cashback_enabled);
