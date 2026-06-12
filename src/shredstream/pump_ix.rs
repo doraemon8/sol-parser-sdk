@@ -1893,71 +1893,130 @@ mod tests {
         // 3MVawF6...: create_v2 accounts[16] = EPjF... (USDC)
         // 2dZAucK...: create_v2 accounts[16] = EPjF... (USDC, 19 accounts)
         // oY9YQbie... and 4h9kYj...: create_v2 accounts[16] = So111...12 (WSOL, 20 accounts)
+        struct Case {
+            signature: &'static str,
+            name: &'static str,
+            account_len: usize,
+            mint: &'static str,
+            user: &'static str,
+            quote_mint: Pubkey,
+            quote_vault: &'static str,
+        }
+        let token_2022_program = crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
+        let spl_token_program = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
         let cases = [
-            (
-                "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
-                "wsol 19-account create_v2",
-                19usize,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
-                "wsol 19-account create_v2 exact quote buy",
-                19usize,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
-                "usdc 19-account create_v2",
-                19usize,
-                pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-            ),
-            (
-                "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
-                "wsol 19-account create_v2 with later buy",
-                19usize,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
-                "usdc 19-account create_v2 exact quote buy",
-                19usize,
-                pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-            ),
-            (
-                "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
-                "wsol 20-account create_v2",
-                20usize,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
-                "wsol 20-account create_v2 with jit account",
-                20usize,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
+            Case {
+                signature: "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
+                name: "wsol 19-account create_v2",
+                account_len: 19,
+                mint: "CGY36MoFU627gPH4TLM5NP4Xnvhz6Nesc71TQecPpump",
+                user: "Aqje5DsN4u2PHmQxGF9PKfpsDGwQRCBhWeLKHCFhSMXk",
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault: "CWR85PmUfzNNgmNN9Ref8L8BvMibZ1tzchiT5bTZpJhn",
+            },
+            Case {
+                signature: "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
+                name: "wsol 19-account create_v2 exact quote buy",
+                account_len: 19,
+                mint: "7NSSfLGsjNHzKxrgggQ56C2UdKxJVJvrECJR3dsbBuuG",
+                user: "2bBRwhGoL4fRZk6g8NnhBZywsF8PdLJnBRfWDCEMogD2",
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault: "6jFz2oefpJUE6opjA7vxs3iXou7YYyb6e6E4LN2BFs1W",
+            },
+            Case {
+                signature: "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
+                name: "usdc 19-account create_v2",
+                account_len: 19,
+                mint: "FUsqvH5x8QUrxmJhspt6meQZtfBr17m2YsTFuVsYpump",
+                user: "9Gg6Mf8tq9zLSpK8qccrQiue3iE7wmyeogKkGZpnz2w5",
+                quote_mint: pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+                quote_vault: "7SLtvqMx4bPoWSbPcnWBWpBem3RXbKraWUsiApXjB1VL",
+            },
+            Case {
+                signature: "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
+                name: "wsol 19-account create_v2 with later buy",
+                account_len: 19,
+                mint: "5i8AZEBc8o5dhfnTQdD3QTVejgbjitwQ1ADHg1jZpump",
+                user: "2b2N2p7xCS9ibDqxwYgXpDSTniJwwye7n93WYuzmr74s",
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault: "9QB9SyXGDbHUsvvF8XMbYH5ioJMHKHhXTjQDoL56uHT7",
+            },
+            Case {
+                signature: "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
+                name: "usdc 19-account create_v2 exact quote buy",
+                account_len: 19,
+                mint: "DsE8Ptubc1HWWethf9ant4eV9YnofEv5kfGyLdj7jk2Y",
+                user: "easy7tXgADWkRMNjFRS2XsLXUAaKH5tEPodh9g7kcX8",
+                quote_mint: pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+                quote_vault: "8QTKfEBf5yChuos4eTzQPbV3jXveCu5GkNKLFoS8oS7t",
+            },
+            Case {
+                signature: "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
+                name: "wsol 20-account create_v2",
+                account_len: 20,
+                mint: "Bv3zjsdJ5KuA9KsGirqssC8pVJwCeCeyLjo4Hqpfpump",
+                user: "2SWqdMbn1FJVUMUEpuyP2St8BPRtqJYXJPWFfmZr486q",
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault: "9QdMAuwtpnHSzjTQcTkjU1GFSs2gNtR66sdQofFv5P7B",
+            },
+            Case {
+                signature: "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
+                name: "wsol 20-account create_v2 with jit account",
+                account_len: 20,
+                mint: "6EvDE4a7Yw8F65oy6UhhN3JBshGk9tV3b2yxNyhypump",
+                user: "2SWqdMbn1FJVUMUEpuyP2St8BPRtqJYXJPWFfmZr486q",
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault: "27jyvk4PUYjcDQkKn8VGT9zNdAxZWWjqALpRUpjMqc2y",
+            },
         ];
 
-        for (signature, name, account_len, expected_quote) in cases {
-            let mut static_keys = vec![Pubkey::new_unique(); account_len + 1];
-            let program_idx = account_len as u8;
+        for case in cases {
+            let mut static_keys = vec![Pubkey::new_unique(); case.account_len + 1];
+            let program_idx = case.account_len as u8;
             static_keys[program_idx as usize] = PROGRAM_ID_PUBKEY;
-            static_keys[16] = expected_quote;
-            static_keys[17] = Pubkey::new_unique();
-            if account_len > 18 {
-                static_keys[18] = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
+            static_keys[0] = pk(case.mint);
+            static_keys[5] = pk(case.user);
+            static_keys[7] = token_2022_program;
+            static_keys[16] = case.quote_mint;
+            static_keys[17] = pk(case.quote_vault);
+            if case.account_len > 18 {
+                static_keys[18] = spl_token_program;
             }
-            let tx = v0_tx(program_idx, static_keys, ix_accounts(account_len), create_v2_data());
+            let tx =
+                v0_tx(program_idx, static_keys, ix_accounts(case.account_len), create_v2_data());
 
             let events = parse_shred_events_like_client(&tx);
 
-            assert_eq!(events.len(), 1, "{name}");
+            assert_eq!(events.len(), 1, "{}", case.name);
             match &events[0] {
                 DexEvent::PumpFunCreate(event) => {
-                    assert_eq!(event.ix_name, "create_v2", "{name}");
-                    assert_eq!(event.quote_mint, expected_quote, "{name}: {signature}");
+                    assert_eq!(event.ix_name, "create_v2", "{}", case.name);
+                    assert_eq!(event.mint, pk(case.mint), "{}: {}", case.name, case.signature);
+                    assert_eq!(event.user, pk(case.user), "{}: {}", case.name, case.signature);
+                    assert_eq!(
+                        event.token_program, token_2022_program,
+                        "{}: {}",
+                        case.name, case.signature
+                    );
+                    assert_eq!(
+                        event.quote_mint, case.quote_mint,
+                        "{}: {}",
+                        case.name, case.signature
+                    );
+                    assert_eq!(
+                        event.quote_vault,
+                        pk(case.quote_vault),
+                        "{}: {}",
+                        case.name,
+                        case.signature
+                    );
+                    assert_eq!(
+                        event.quote_token_program, spl_token_program,
+                        "{}: {}",
+                        case.name, case.signature
+                    );
                 }
-                other => panic!("{name}: expected PumpFunCreate, got {other:?}"),
+                other => panic!("{}: expected PumpFunCreate, got {other:?}", case.name),
             }
         }
     }

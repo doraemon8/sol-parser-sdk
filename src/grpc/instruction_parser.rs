@@ -474,18 +474,23 @@ mod tests {
         static_len: usize,
         program_idx: u8,
         ix_accounts: Vec<u8>,
-        loaded_writable_addresses: Vec<(usize, Pubkey)>,
+        account_overrides: Vec<(usize, Pubkey)>,
     ) -> (TransactionStatusMeta, Option<Transaction>) {
         let mut account_keys: Vec<Pubkey> = (0..static_len).map(|_| Pubkey::new_unique()).collect();
         account_keys[program_idx as usize] = crate::instr::program_ids::PUMPFUN_PROGRAM_ID;
-        let loaded_len = loaded_writable_addresses
+        let loaded_len = account_overrides
             .iter()
-            .map(|(global_idx, _)| global_idx.saturating_sub(static_len) + 1)
+            .filter(|(global_idx, _)| *global_idx >= static_len)
+            .map(|(global_idx, _)| global_idx - static_len + 1)
             .max()
             .unwrap_or_default();
         let mut loaded = vec![Pubkey::new_unique(); loaded_len];
-        for (global_idx, key) in loaded_writable_addresses {
-            loaded[global_idx - static_len] = key;
+        for (global_idx, key) in account_overrides {
+            if global_idx < static_len {
+                account_keys[global_idx] = key;
+            } else {
+                loaded[global_idx - static_len] = key;
+            }
         }
 
         let meta = TransactionStatusMeta {
@@ -514,23 +519,33 @@ mod tests {
         (meta, Some(tx))
     }
 
-    fn create_v2_accounts(account_len: usize, program_idx: u8, quote_idx: Option<u8>) -> Vec<u8> {
+    fn create_v2_accounts(
+        account_len: usize,
+        program_idx: u8,
+        mint_idx: u8,
+        user_idx: u8,
+        token_program_idx: u8,
+        quote_tail: Option<(u8, u8, u8)>,
+    ) -> Vec<u8> {
         let mut accounts: Vec<u8> = (0..account_len).map(|i| i as u8).collect();
+        accounts[0] = mint_idx;
+        accounts[5] = user_idx;
+        accounts[7] = token_program_idx;
         if account_len > 15 {
             accounts[15] = program_idx;
         }
-        if let Some(quote_idx) = quote_idx {
+        if let Some((quote_idx, quote_vault_idx, quote_token_program_idx)) = quote_tail {
             accounts[16] = quote_idx;
-            accounts[17] = quote_idx + 1;
-            accounts[18] = quote_idx + 2;
+            accounts[17] = quote_vault_idx;
+            accounts[18] = quote_token_program_idx;
         }
         accounts
     }
 
-    fn parse_create_v2_quote_from_grpc(
+    fn parse_create_v2_from_grpc(
         meta: &TransactionStatusMeta,
         tx: &Option<Transaction>,
-    ) -> Pubkey {
+    ) -> crate::core::events::PumpFunCreateTokenEvent {
         let events = parse_instructions_enhanced(
             meta,
             tx,
@@ -545,11 +560,46 @@ mod tests {
         match &events[0] {
             DexEvent::PumpFunCreate(e) => {
                 assert_eq!(e.ix_name, "create_v2");
-                e.quote_mint
+                e.clone()
             }
             DexEvent::PumpFunCreateV2(e) => {
                 assert_eq!(e.ix_name, "create_v2");
-                e.quote_mint
+                crate::core::events::PumpFunCreateTokenEvent {
+                    metadata: e.metadata.clone(),
+                    name: e.name.clone(),
+                    symbol: e.symbol.clone(),
+                    uri: e.uri.clone(),
+                    mint: e.mint,
+                    bonding_curve: e.bonding_curve,
+                    user: e.user,
+                    creator: e.creator,
+                    timestamp: e.timestamp,
+                    virtual_token_reserves: e.virtual_token_reserves,
+                    virtual_sol_reserves: e.virtual_sol_reserves,
+                    real_token_reserves: e.real_token_reserves,
+                    token_total_supply: e.token_total_supply,
+                    mint_authority: e.mint_authority,
+                    associated_bonding_curve: e.associated_bonding_curve,
+                    global: e.global,
+                    system_program: e.system_program,
+                    token_program: e.token_program,
+                    associated_token_program: e.associated_token_program,
+                    mayhem_program_id: e.mayhem_program_id,
+                    global_params: e.global_params,
+                    sol_vault: e.sol_vault,
+                    mayhem_state: e.mayhem_state,
+                    mayhem_token_vault: e.mayhem_token_vault,
+                    event_authority: e.event_authority,
+                    program: e.program,
+                    quote_mint: e.quote_mint,
+                    quote_vault: e.quote_vault,
+                    quote_token_program: e.quote_token_program,
+                    virtual_quote_reserves: e.virtual_quote_reserves,
+                    ix_name: e.ix_name.clone(),
+                    is_mayhem_mode: e.is_mayhem_mode,
+                    is_cashback_enabled: e.is_cashback_enabled,
+                    observed_fee_recipient: e.observed_fee_recipient,
+                }
             }
             other => panic!("expected PumpFun create_v2 event, got {other:?}"),
         }
@@ -718,102 +768,214 @@ mod tests {
 
     #[test]
     fn grpc_pumpfun_create_v2_resolves_alt_loaded_quote_mint_cases() {
-        let token_program = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
+        struct Case {
+            signature: &'static str,
+            name: &'static str,
+            static_len: usize,
+            program_idx: u8,
+            account_len: usize,
+            mint_idx: u8,
+            mint: &'static str,
+            user_idx: u8,
+            user: &'static str,
+            token_program_idx: u8,
+            quote_idx: u8,
+            quote_mint: Pubkey,
+            quote_vault_idx: u8,
+            quote_vault: &'static str,
+            quote_token_program_idx: u8,
+        }
+        let token_2022_program = crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
+        let spl_token_program = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
         let cases = [
-            (
-                "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
-                "19-account WSOL quote in ALT",
-                15usize,
-                12u8,
-                19usize,
-                27u8,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
-                "19-account WSOL quote in ALT with exact quote buy",
-                20usize,
-                15u8,
-                19usize,
-                28u8,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
-                "19-account USDC quote in ALT",
-                19usize,
-                16u8,
-                19usize,
-                30u8,
-                usdc_mint(),
-            ),
-            (
-                "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
-                "20-account WSOL quote in ALT",
-                27usize,
-                26u8,
-                20usize,
-                27u8,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
-                "19-account WSOL quote in ALT with later buy",
-                18usize,
-                13u8,
-                19usize,
-                30u8,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
-            (
-                "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
-                "19-account USDC quote in ALT exact quote buy",
-                33usize,
-                32u8,
-                19usize,
-                33u8,
-                usdc_mint(),
-            ),
-            (
-                "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
-                "20-account WSOL quote in ALT with jit account",
-                27usize,
-                26u8,
-                20usize,
-                27u8,
-                PUMPFUN_WSOL_QUOTE_MINT,
-            ),
+            Case {
+                signature: "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
+                name: "19-account WSOL quote in ALT",
+                static_len: 15,
+                program_idx: 12,
+                account_len: 19,
+                mint_idx: 1,
+                mint: "CGY36MoFU627gPH4TLM5NP4Xnvhz6Nesc71TQecPpump",
+                user_idx: 0,
+                user: "Aqje5DsN4u2PHmQxGF9PKfpsDGwQRCBhWeLKHCFhSMXk",
+                token_program_idx: 24,
+                quote_idx: 27,
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault_idx: 7,
+                quote_vault: "CWR85PmUfzNNgmNN9Ref8L8BvMibZ1tzchiT5bTZpJhn",
+                quote_token_program_idx: 28,
+            },
+            Case {
+                signature: "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
+                name: "19-account WSOL quote in ALT with exact quote buy",
+                static_len: 20,
+                program_idx: 15,
+                account_len: 19,
+                mint_idx: 1,
+                mint: "7NSSfLGsjNHzKxrgggQ56C2UdKxJVJvrECJR3dsbBuuG",
+                user_idx: 0,
+                user: "2bBRwhGoL4fRZk6g8NnhBZywsF8PdLJnBRfWDCEMogD2",
+                token_program_idx: 31,
+                quote_idx: 28,
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault_idx: 4,
+                quote_vault: "6jFz2oefpJUE6opjA7vxs3iXou7YYyb6e6E4LN2BFs1W",
+                quote_token_program_idx: 30,
+            },
+            Case {
+                signature: "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
+                name: "19-account USDC quote in ALT",
+                static_len: 19,
+                program_idx: 16,
+                account_len: 19,
+                mint_idx: 1,
+                mint: "FUsqvH5x8QUrxmJhspt6meQZtfBr17m2YsTFuVsYpump",
+                user_idx: 0,
+                user: "9Gg6Mf8tq9zLSpK8qccrQiue3iE7wmyeogKkGZpnz2w5",
+                token_program_idx: 27,
+                quote_idx: 30,
+                quote_mint: usdc_mint(),
+                quote_vault_idx: 6,
+                quote_vault: "7SLtvqMx4bPoWSbPcnWBWpBem3RXbKraWUsiApXjB1VL",
+                quote_token_program_idx: 31,
+            },
+            Case {
+                signature: "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
+                name: "20-account WSOL quote in ALT",
+                static_len: 15,
+                program_idx: 12,
+                account_len: 20,
+                mint_idx: 1,
+                mint: "Bv3zjsdJ5KuA9KsGirqssC8pVJwCeCeyLjo4Hqpfpump",
+                user_idx: 0,
+                user: "2SWqdMbn1FJVUMUEpuyP2St8BPRtqJYXJPWFfmZr486q",
+                token_program_idx: 24,
+                quote_idx: 27,
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault_idx: 7,
+                quote_vault: "9QdMAuwtpnHSzjTQcTkjU1GFSs2gNtR66sdQofFv5P7B",
+                quote_token_program_idx: 28,
+            },
+            Case {
+                signature: "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
+                name: "19-account WSOL quote in ALT with later buy",
+                static_len: 18,
+                program_idx: 13,
+                account_len: 19,
+                mint_idx: 1,
+                mint: "5i8AZEBc8o5dhfnTQdD3QTVejgbjitwQ1ADHg1jZpump",
+                user_idx: 0,
+                user: "2b2N2p7xCS9ibDqxwYgXpDSTniJwwye7n93WYuzmr74s",
+                token_program_idx: 27,
+                quote_idx: 30,
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault_idx: 7,
+                quote_vault: "9QB9SyXGDbHUsvvF8XMbYH5ioJMHKHhXTjQDoL56uHT7",
+                quote_token_program_idx: 31,
+            },
+            Case {
+                signature: "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
+                name: "19-account USDC quote in ALT exact quote buy",
+                static_len: 19,
+                program_idx: 15,
+                account_len: 19,
+                mint_idx: 1,
+                mint: "DsE8Ptubc1HWWethf9ant4eV9YnofEv5kfGyLdj7jk2Y",
+                user_idx: 0,
+                user: "easy7tXgADWkRMNjFRS2XsLXUAaKH5tEPodh9g7kcX8",
+                token_program_idx: 28,
+                quote_idx: 33,
+                quote_mint: usdc_mint(),
+                quote_vault_idx: 7,
+                quote_vault: "8QTKfEBf5yChuos4eTzQPbV3jXveCu5GkNKLFoS8oS7t",
+                quote_token_program_idx: 27,
+            },
+            Case {
+                signature: "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
+                name: "20-account WSOL quote in ALT with jit account",
+                static_len: 15,
+                program_idx: 12,
+                account_len: 20,
+                mint_idx: 1,
+                mint: "6EvDE4a7Yw8F65oy6UhhN3JBshGk9tV3b2yxNyhypump",
+                user_idx: 0,
+                user: "2SWqdMbn1FJVUMUEpuyP2St8BPRtqJYXJPWFfmZr486q",
+                token_program_idx: 24,
+                quote_idx: 27,
+                quote_mint: PUMPFUN_WSOL_QUOTE_MINT,
+                quote_vault_idx: 7,
+                quote_vault: "27jyvk4PUYjcDQkKn8VGT9zNdAxZWWjqALpRUpjMqc2y",
+                quote_token_program_idx: 28,
+            },
         ];
 
-        for (signature, name, static_len, program_idx, account_len, quote_idx, expected_quote) in
-            cases
-        {
-            let quote_vault = Pubkey::new_unique();
+        for case in cases {
             let (meta, tx) = grpc_pumpfun_create_v2_tx(
-                static_len,
-                program_idx,
-                create_v2_accounts(account_len, program_idx, Some(quote_idx)),
+                case.static_len,
+                case.program_idx,
+                create_v2_accounts(
+                    case.account_len,
+                    case.program_idx,
+                    case.mint_idx,
+                    case.user_idx,
+                    case.token_program_idx,
+                    Some((case.quote_idx, case.quote_vault_idx, case.quote_token_program_idx)),
+                ),
                 vec![
-                    (quote_idx as usize, expected_quote),
-                    (quote_idx as usize + 1, quote_vault),
-                    (quote_idx as usize + 2, token_program),
+                    (case.mint_idx as usize, pk(case.mint)),
+                    (case.user_idx as usize, pk(case.user)),
+                    (case.token_program_idx as usize, token_2022_program),
+                    (case.quote_idx as usize, case.quote_mint),
+                    (case.quote_vault_idx as usize, pk(case.quote_vault)),
+                    (case.quote_token_program_idx as usize, spl_token_program),
                 ],
             );
 
-            let quote = parse_create_v2_quote_from_grpc(&meta, &tx);
+            let create = parse_create_v2_from_grpc(&meta, &tx);
 
-            assert_eq!(quote, expected_quote, "{name}: {signature}");
+            assert_eq!(create.mint, pk(case.mint), "{}: {}", case.name, case.signature);
+            assert_eq!(create.user, pk(case.user), "{}: {}", case.name, case.signature);
+            assert_eq!(
+                create.token_program, token_2022_program,
+                "{}: {}",
+                case.name, case.signature
+            );
+            assert_eq!(create.quote_mint, case.quote_mint, "{}: {}", case.name, case.signature);
+            assert_eq!(
+                create.quote_vault,
+                pk(case.quote_vault),
+                "{}: {}",
+                case.name,
+                case.signature
+            );
+            assert_eq!(
+                create.quote_token_program, spl_token_program,
+                "{}: {}",
+                case.name, case.signature
+            );
         }
     }
 
     #[test]
     fn grpc_pumpfun_create_v2_16_account_uses_sol_sentinel_without_quote_tail() {
         let signature = "H6azwLqtRtrnVNC5iwcjYM9idU3e9SRyLZXTwjfJGJxA4X7dZL7vyhFAJNvQy7bb6bmQNmFHUt1KkkPPmhdge3G";
-        let (meta, tx) =
-            grpc_pumpfun_create_v2_tx(16, 12, create_v2_accounts(16, 12, None), Vec::new());
+        let mint = pk("HhL4NuFWAfHScNBUksxN6YNXbMNbcSkH4LJaWgZkpump");
+        let user = pk("25jZ7EwnKfZo2DZgHM27pbU5Tf54PYG8jc7qNL3gtkxG");
+        let token_program = crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
+        let (meta, tx) = grpc_pumpfun_create_v2_tx(
+            16,
+            12,
+            create_v2_accounts(16, 12, 1, 0, 24, None),
+            vec![(1, mint), (0, user), (24, token_program)],
+        );
 
-        let quote = parse_create_v2_quote_from_grpc(&meta, &tx);
+        let create = parse_create_v2_from_grpc(&meta, &tx);
 
-        assert_eq!(quote, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, "{signature}");
+        assert_eq!(create.mint, mint, "{signature}");
+        assert_eq!(create.user, user, "{signature}");
+        assert_eq!(create.token_program, token_program, "{signature}");
+        assert_eq!(create.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, "{signature}");
+        assert_eq!(create.quote_vault, Pubkey::default(), "{signature}");
+        assert_eq!(create.quote_token_program, Pubkey::default(), "{signature}");
     }
 }
