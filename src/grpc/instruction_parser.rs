@@ -514,11 +514,16 @@ mod tests {
         (meta, Some(tx))
     }
 
-    fn ix_accounts_with_quote_tail(account_len: usize, quote_idx: u8) -> Vec<u8> {
+    fn create_v2_accounts(account_len: usize, program_idx: u8, quote_idx: Option<u8>) -> Vec<u8> {
         let mut accounts: Vec<u8> = (0..account_len).map(|i| i as u8).collect();
-        accounts[16] = quote_idx;
-        accounts[17] = quote_idx + 1;
-        accounts[18] = quote_idx + 2;
+        if account_len > 15 {
+            accounts[15] = program_idx;
+        }
+        if let Some(quote_idx) = quote_idx {
+            accounts[16] = quote_idx;
+            accounts[17] = quote_idx + 1;
+            accounts[18] = quote_idx + 2;
+        }
         accounts
     }
 
@@ -716,23 +721,62 @@ mod tests {
         let token_program = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
         let cases = [
             (
-                "3MVawF6/2dZA style 19-account USDC quote in ALT",
-                30usize,
-                29u8,
+                "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
+                "19-account WSOL quote in ALT",
+                15usize,
+                12u8,
+                19usize,
+                27u8,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
+                "19-account WSOL quote in ALT with exact quote buy",
+                20usize,
+                15u8,
+                19usize,
+                28u8,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
+                "19-account USDC quote in ALT",
+                19usize,
+                16u8,
                 19usize,
                 30u8,
                 usdc_mint(),
             ),
             (
-                "3jWGF style 19-account WSOL quote in ALT",
-                30usize,
-                29u8,
+                "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
+                "20-account WSOL quote in ALT",
+                27usize,
+                26u8,
+                20usize,
+                27u8,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
+                "19-account WSOL quote in ALT with later buy",
+                18usize,
+                13u8,
                 19usize,
                 30u8,
                 PUMPFUN_WSOL_QUOTE_MINT,
             ),
             (
-                "oY9/4h9 style 20-account WSOL quote in ALT",
+                "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
+                "19-account USDC quote in ALT exact quote buy",
+                33usize,
+                32u8,
+                19usize,
+                33u8,
+                usdc_mint(),
+            ),
+            (
+                "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
+                "20-account WSOL quote in ALT with jit account",
                 27usize,
                 26u8,
                 20usize,
@@ -741,12 +785,14 @@ mod tests {
             ),
         ];
 
-        for (name, static_len, program_idx, account_len, quote_idx, expected_quote) in cases {
+        for (signature, name, static_len, program_idx, account_len, quote_idx, expected_quote) in
+            cases
+        {
             let quote_vault = Pubkey::new_unique();
             let (meta, tx) = grpc_pumpfun_create_v2_tx(
                 static_len,
                 program_idx,
-                ix_accounts_with_quote_tail(account_len, quote_idx),
+                create_v2_accounts(account_len, program_idx, Some(quote_idx)),
                 vec![
                     (quote_idx as usize, expected_quote),
                     (quote_idx as usize + 1, quote_vault),
@@ -756,17 +802,18 @@ mod tests {
 
             let quote = parse_create_v2_quote_from_grpc(&meta, &tx);
 
-            assert_eq!(quote, expected_quote, "{name}");
+            assert_eq!(quote, expected_quote, "{name}: {signature}");
         }
     }
 
     #[test]
     fn grpc_pumpfun_create_v2_16_account_uses_sol_sentinel_without_quote_tail() {
-        let accounts: Vec<u8> = (0..16).map(|i| i as u8).collect();
-        let (meta, tx) = grpc_pumpfun_create_v2_tx(17, 16, accounts, Vec::new());
+        let signature = "H6azwLqtRtrnVNC5iwcjYM9idU3e9SRyLZXTwjfJGJxA4X7dZL7vyhFAJNvQy7bb6bmQNmFHUt1KkkPPmhdge3G";
+        let (meta, tx) =
+            grpc_pumpfun_create_v2_tx(16, 12, create_v2_accounts(16, 12, None), Vec::new());
 
         let quote = parse_create_v2_quote_from_grpc(&meta, &tx);
 
-        assert_eq!(quote, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+        assert_eq!(quote, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, "{signature}");
     }
 }

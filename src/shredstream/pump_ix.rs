@@ -264,15 +264,15 @@ fn create_v2_quote_accounts_from_shred_accounts(
         return (PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, Pubkey::default(), Pubkey::default());
     }
     let quote_mint = get_account(16).unwrap_or_default();
+    let quote_vault = get_account(17).unwrap_or_default();
     let quote_token_program = get_account(18).unwrap_or_default();
-    if quote_mint == Pubkey::default() || quote_token_program == Pubkey::default() {
+    if quote_mint == Pubkey::default()
+        || quote_vault == Pubkey::default()
+        || quote_token_program == Pubkey::default()
+    {
         return (Pubkey::default(), Pubkey::default(), Pubkey::default());
     }
-    (
-        quote_mint_from_shred_v2_account(Some(quote_mint)),
-        get_account(17).unwrap_or_default(),
-        quote_token_program,
-    )
+    (quote_mint_from_shred_v2_account(Some(quote_mint)), quote_vault, quote_token_program)
 }
 
 #[inline]
@@ -1863,6 +1863,8 @@ mod tests {
         static_keys[16] = PROGRAM_ID_PUBKEY;
         let tx = v0_tx(16, static_keys, ix_accounts(16), create_v2_data());
         events.clear();
+        let signature =
+            "H6azwLqtRtrnVNC5iwcjYM9idU3e9SRyLZXTwjfJGJxA4X7dZL7vyhFAJNvQy7bb6bmQNmFHUt1KkkPPmhdge3G";
 
         parse_transaction_dex_events_with_filter(
             &tx,
@@ -1878,7 +1880,7 @@ mod tests {
         match &events[0] {
             DexEvent::PumpFunCreate(event) => {
                 assert_eq!(event.ix_name, "create_v2");
-                assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+                assert_eq!(event.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, "{signature}");
             }
             other => panic!("expected PumpFunCreate, got {other:?}"),
         }
@@ -1887,24 +1889,61 @@ mod tests {
     #[test]
     fn shred_pumpfun_create_v2_full_accounts_cover_real_quote_cases() {
         // These cases come from user-provided mainnet signatures:
+        // 4GCVgY2F... / 5HwZKTwc... / 3jWGFYXT...: create_v2 accounts[16] = So111...12 (WSOL, 19 accounts)
         // 3MVawF6...: create_v2 accounts[16] = EPjF... (USDC)
         // 2dZAucK...: create_v2 accounts[16] = EPjF... (USDC, 19 accounts)
         // oY9YQbie... and 4h9kYj...: create_v2 accounts[16] = So111...12 (WSOL, 20 accounts)
         let cases = [
             (
+                "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
+                "wsol 19-account create_v2",
+                19usize,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
+                "wsol 19-account create_v2 exact quote buy",
+                19usize,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
                 "usdc 19-account create_v2",
                 19usize,
                 pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
             ),
-            ("wsol 19-account create_v2", 19usize, PUMPFUN_WSOL_QUOTE_MINT),
-            ("wsol 20-account create_v2", 20usize, PUMPFUN_WSOL_QUOTE_MINT),
+            (
+                "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
+                "wsol 19-account create_v2 with later buy",
+                19usize,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
+                "usdc 19-account create_v2 exact quote buy",
+                19usize,
+                pk("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+            ),
+            (
+                "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
+                "wsol 20-account create_v2",
+                20usize,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
+            (
+                "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
+                "wsol 20-account create_v2 with jit account",
+                20usize,
+                PUMPFUN_WSOL_QUOTE_MINT,
+            ),
         ];
 
-        for (name, account_len, expected_quote) in cases {
+        for (signature, name, account_len, expected_quote) in cases {
             let mut static_keys = vec![Pubkey::new_unique(); account_len + 1];
             let program_idx = account_len as u8;
             static_keys[program_idx as usize] = PROGRAM_ID_PUBKEY;
             static_keys[16] = expected_quote;
+            static_keys[17] = Pubkey::new_unique();
             if account_len > 18 {
                 static_keys[18] = crate::accounts::program_ids::SPL_TOKEN_PROGRAM_ID;
             }
@@ -1916,7 +1955,7 @@ mod tests {
             match &events[0] {
                 DexEvent::PumpFunCreate(event) => {
                     assert_eq!(event.ix_name, "create_v2", "{name}");
-                    assert_eq!(event.quote_mint, expected_quote, "{name}");
+                    assert_eq!(event.quote_mint, expected_quote, "{name}: {signature}");
                 }
                 other => panic!("{name}: expected PumpFunCreate, got {other:?}"),
             }
@@ -1926,20 +1965,78 @@ mod tests {
     #[test]
     fn shred_pumpfun_create_v2_alt_quote_index_is_not_guessable() {
         // Real compiled-index pattern from the user-provided signatures:
+        // - 4GCVgY2F... create_v2 has 19 accounts, but accounts[16] is global idx 27 (ALT).
+        // - 5HwZKTwc... create_v2 has 19 accounts, but accounts[16] is global idx 28 (ALT).
         // - 3MVawF6... create_v2 has 19 accounts, but accounts[16] is global idx 30 (ALT).
         // - 2dZAucK... create_v2 has 19 accounts, but accounts[16] is global idx 33 (ALT).
         // - oY9YQbie... create_v2 has 20 accounts, but accounts[16] is global idx 27 (ALT).
+        // - 3jWGFYXT... create_v2 has 19 accounts, but accounts[16] is global idx 30 (ALT).
+        // - 4h9kYjzY... create_v2 has 20 accounts, but accounts[16] is global idx 27 (ALT).
         //
         // ShredStream currently receives a VersionedTransaction and only has static_account_keys().
         // ALT-loaded addresses are not in that list, so the hot path must not invent USDC/WSOL.
-        for (name, static_len, program_idx, quote_global_idx, account_len) in [
-            ("usdc 19-account quote in ALT", 19usize, 16u8, 30u8, 19usize),
-            ("usdc 19-account quote in ALT alt2", 19usize, 15u8, 33u8, 19usize),
-            ("wsol 20-account quote in ALT", 15usize, 12u8, 27u8, 20usize),
+        for (signature, name, static_len, program_idx, quote_global_idx, account_len) in [
+            (
+                "4GCVgY2FnT1s4q5zemnPL4mzSbuhUTgQo9mc9jewhLZzsCXKe8ehz6xD4QDJE853CLrF6doJbf4JNwJVeEYLA4De",
+                "wsol 19-account quote in ALT",
+                15usize,
+                12u8,
+                27u8,
+                19usize,
+            ),
+            (
+                "5HwZKTwcGFjSBPugSX5hE9JSq5wKmUooK3tLXuEoyDDzrTvHu7op3XDbhBXuteiC5EePNPh8TC1j6Fns47YvnyeG",
+                "wsol 19-account quote in ALT exact quote buy",
+                20usize,
+                15u8,
+                28u8,
+                19usize,
+            ),
+            (
+                "3MVawF6EPtG7rEPXdsyQfQUBLv3epRVNpNS4tRE4uwTPMqLNPqhuABwxU3QZH4uD6CuVupcpGchpNRK5HTbHRLNK",
+                "usdc 19-account quote in ALT",
+                19usize,
+                16u8,
+                30u8,
+                19usize,
+            ),
+            (
+                "oY9YQbie16Bw11GsqbAPVnW6YjMHAj3kP9sufjcuQjdfcU86iUY8CiSaDrvu4QXJFnGY4jqQc2Kc1YVuAzujvyv",
+                "wsol 20-account quote in ALT",
+                15usize,
+                12u8,
+                27u8,
+                20usize,
+            ),
+            (
+                "3jWGFYXT5V33Qc2roEBFDRAWHeybDowr53dSdnYSRkrPdYybU7oyEH9BfgSRxkgFHVKmUjv4e5T33AEnhJvBCuP2",
+                "wsol 19-account quote in ALT with later buy",
+                18usize,
+                13u8,
+                30u8,
+                19usize,
+            ),
+            (
+                "2dZAucKwr4n5Lqu3BtJ4P8JsjCDtUXJzthadddfURraEJRTgn6XWaTNUNBbgUfP5c2wcVdubqViQhr48eWsgRqPX",
+                "usdc 19-account quote in ALT exact quote buy",
+                19usize,
+                15u8,
+                33u8,
+                19usize,
+            ),
+            (
+                "4h9kYjzYpqqyYZuFnjf14zRwrGyChCuKAYVy6a4ZBig19bydEYsHwp6VbiKqTzT3pLf6NXnf6E25dn1NiU8LR4YB",
+                "wsol 20-account quote in ALT with jit account",
+                15usize,
+                12u8,
+                27u8,
+                20usize,
+            ),
         ] {
             let mut static_keys = vec![Pubkey::new_unique(); static_len];
             static_keys[program_idx as usize] = PROGRAM_ID_PUBKEY;
             let mut ix_accounts = ix_accounts(account_len);
+            ix_accounts[15] = program_idx;
             ix_accounts[16] = quote_global_idx;
             let tx = v0_tx(program_idx, static_keys, ix_accounts, create_v2_data());
 
@@ -1948,10 +2045,14 @@ mod tests {
             assert_eq!(events.len(), 1, "{name}");
             match &events[0] {
                 DexEvent::PumpFunCreate(event) => {
-                    assert_eq!(event.ix_name, "create_v2", "{name}");
-                    assert_eq!(event.quote_mint, Pubkey::default(), "{name}");
-                    assert_eq!(event.quote_vault, Pubkey::default(), "{name}");
-                    assert_eq!(event.quote_token_program, Pubkey::default(), "{name}");
+                    assert_eq!(event.ix_name, "create_v2", "{name}: {signature}");
+                    assert_eq!(event.quote_mint, Pubkey::default(), "{name}: {signature}");
+                    assert_eq!(event.quote_vault, Pubkey::default(), "{name}: {signature}");
+                    assert_eq!(
+                        event.quote_token_program,
+                        Pubkey::default(),
+                        "{name}: {signature}"
+                    );
                 }
                 other => panic!("{name}: expected PumpFunCreate, got {other:?}"),
             }

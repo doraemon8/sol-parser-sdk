@@ -40,15 +40,15 @@ fn create_v2_quote_accounts_from_accounts(accounts: &[Pubkey]) -> (Pubkey, Pubke
         return (PUMPFUN_SOLSCAN_SOL_QUOTE_MINT, Pubkey::default(), Pubkey::default());
     }
     let quote_mint = get_account(accounts, 16).unwrap_or_default();
+    let quote_vault = get_account(accounts, 17).unwrap_or_default();
     let quote_token_program = get_account(accounts, 18).unwrap_or_default();
-    if quote_mint == Pubkey::default() || quote_token_program == Pubkey::default() {
+    if quote_mint == Pubkey::default()
+        || quote_vault == Pubkey::default()
+        || quote_token_program == Pubkey::default()
+    {
         return (Pubkey::default(), Pubkey::default(), Pubkey::default());
     }
-    (
-        normalize_pumpfun_quote_mint(quote_mint),
-        get_account(accounts, 17).unwrap_or_default(),
-        quote_token_program,
-    )
+    (normalize_pumpfun_quote_mint(quote_mint), quote_vault, quote_token_program)
 }
 
 /// Main PumpFun instruction parser
@@ -865,6 +865,25 @@ mod tests {
         match event {
             DexEvent::PumpFunCreate(c) => {
                 assert_eq!(c.quote_mint, PUMPFUN_WSOL_QUOTE_MINT);
+            }
+            other => panic!("expected canonical PumpFunCreate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_create_v2_instruction_does_not_emit_partial_quote_tail() {
+        let mut acc = accounts(19);
+        acc[16] = PUMPFUN_WSOL_QUOTE_MINT;
+        acc[17] = Pubkey::default();
+        let event =
+            parse_instruction(&create_v2_data(), &acc, Signature::default(), 1, 0, None, 99)
+                .expect("event");
+
+        match event {
+            DexEvent::PumpFunCreate(c) => {
+                assert_eq!(c.quote_mint, Pubkey::default());
+                assert_eq!(c.quote_vault, Pubkey::default());
+                assert_eq!(c.quote_token_program, Pubkey::default());
             }
             other => panic!("expected canonical PumpFunCreate, got {other:?}"),
         }
