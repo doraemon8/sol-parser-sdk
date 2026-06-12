@@ -43,6 +43,24 @@ fn create_v2_quote_mint_from_accounts(accounts: &[Pubkey]) -> Pubkey {
     }
 }
 
+#[inline(always)]
+fn create_v2_quote_vault_from_accounts(accounts: &[Pubkey]) -> Pubkey {
+    if accounts.len() >= 19 {
+        get_account(accounts, 17).unwrap_or_default()
+    } else {
+        Pubkey::default()
+    }
+}
+
+#[inline(always)]
+fn create_v2_quote_token_program_from_accounts(accounts: &[Pubkey]) -> Pubkey {
+    if accounts.len() >= 19 {
+        get_account(accounts, 18).unwrap_or_default()
+    } else {
+        Pubkey::default()
+    }
+}
+
 /// Main PumpFun instruction parser
 ///
 /// Outer instructions (8-byte discriminator): CREATE, CREATE_V2 从指令解析并返回事件；
@@ -716,6 +734,8 @@ fn parse_create_v2_instruction(
         is_mayhem_mode,
         is_cashback_enabled,
         quote_mint: create_v2_quote_mint_from_accounts(accounts),
+        quote_vault: create_v2_quote_vault_from_accounts(accounts),
+        quote_token_program: create_v2_quote_token_program_from_accounts(accounts),
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))

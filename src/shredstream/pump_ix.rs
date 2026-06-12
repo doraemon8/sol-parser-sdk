@@ -272,6 +272,19 @@ fn create_v2_quote_mint_from_shred_accounts(
     }
 }
 
+#[inline(always)]
+fn create_v2_quote_account_from_shred_accounts(
+    accounts_len: usize,
+    index: usize,
+    get_account: impl Fn(usize) -> Option<Pubkey>,
+) -> Pubkey {
+    if accounts_len >= 19 {
+        get_account(index).unwrap_or_default()
+    } else {
+        Pubkey::default()
+    }
+}
+
 #[inline]
 fn scan_create_mint_from_ix(
     program_id_index: u8,
@@ -976,6 +989,12 @@ fn parse_create_v2_instruction(
         is_mayhem_mode,
         is_cashback_enabled,
         quote_mint: create_v2_quote_mint_from_shred_accounts(accounts.len(), get_account),
+        quote_vault: create_v2_quote_account_from_shred_accounts(accounts.len(), 17, get_account),
+        quote_token_program: create_v2_quote_account_from_shred_accounts(
+            accounts.len(),
+            18,
+            get_account,
+        ),
         ix_name: "create_v2".to_string(),
         ..Default::default()
     }))

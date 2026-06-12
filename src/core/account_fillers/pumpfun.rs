@@ -18,17 +18,30 @@ fn pump_trade_uses_v2_layout(e: &PumpFunTradeEvent, get: &AccountGetter<'_>) -> 
 }
 
 #[inline(always)]
-fn fill_create_v2_quote_mint_if_appended(to: &mut Pubkey, get: &AccountGetter<'_>) {
-    if *to == Pubkey::default() || is_pumpfun_solscan_sol_quote_mint(*to) {
-        if get(18) == Pubkey::default() {
-            return;
-        }
+fn fill_create_v2_quote_accounts_if_appended(
+    quote_mint_to: &mut Pubkey,
+    quote_vault_to: &mut Pubkey,
+    quote_token_program_to: &mut Pubkey,
+    get: &AccountGetter<'_>,
+) {
+    let quote_token_program = get(18);
+    if quote_token_program == Pubkey::default() {
+        return;
+    }
+
+    if *quote_mint_to == Pubkey::default() || is_pumpfun_solscan_sol_quote_mint(*quote_mint_to) {
         let quote_mint = get(16);
         if quote_mint != Pubkey::default()
             && quote_mint != crate::instr::program_ids::PUMPFUN_PROGRAM_ID
         {
-            *to = normalize_pumpfun_quote_mint(quote_mint);
+            *quote_mint_to = normalize_pumpfun_quote_mint(quote_mint);
         }
+    }
+    if *quote_vault_to == Pubkey::default() {
+        *quote_vault_to = get(17);
+    }
+    if *quote_token_program_to == Pubkey::default() {
+        *quote_token_program_to = quote_token_program;
     }
 }
 
@@ -273,7 +286,12 @@ pub fn fill_create_accounts_from_v2(e: &mut PumpFunCreateTokenEvent, get: &Accou
     if e.program == Pubkey::default() {
         e.program = get(15);
     }
-    fill_create_v2_quote_mint_if_appended(&mut e.quote_mint, get);
+    fill_create_v2_quote_accounts_if_appended(
+        &mut e.quote_mint,
+        &mut e.quote_vault,
+        &mut e.quote_token_program,
+        get,
+    );
 }
 
 /// 填充 PumpFun CreateV2 事件账户
@@ -332,7 +350,12 @@ pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountG
     if e.program == Pubkey::default() {
         e.program = get(15);
     }
-    fill_create_v2_quote_mint_if_appended(&mut e.quote_mint, get);
+    fill_create_v2_quote_accounts_if_appended(
+        &mut e.quote_mint,
+        &mut e.quote_vault,
+        &mut e.quote_token_program,
+        get,
+    );
 }
 
 /// 填充 PumpFun Migrate 事件账户
@@ -403,12 +426,15 @@ mod tests {
     }
 
     #[test]
-    fn fill_create_accounts_from_v2_sets_appended_quote_mint_only_when_tail_exists() {
+    fn fill_create_accounts_from_v2_sets_appended_quote_accounts_only_when_tail_exists() {
         let quote_mint = PUMPFUN_WSOL_QUOTE_MINT;
+        let quote_vault = Pubkey::new_from_array([17u8; 32]);
+        let quote_token_program = Pubkey::new_from_array([18u8; 32]);
         let get_with_tail = |i: usize| -> Pubkey {
             match i {
                 16 => quote_mint,
-                18 => Pubkey::new_from_array([18u8; 32]),
+                17 => quote_vault,
+                18 => quote_token_program,
                 _ => Pubkey::default(),
             }
         };
@@ -419,6 +445,8 @@ mod tests {
 
         fill_create_accounts_from_v2(&mut with_tail, &get_with_tail);
         assert_eq!(with_tail.quote_mint, quote_mint);
+        assert_eq!(with_tail.quote_vault, quote_vault);
+        assert_eq!(with_tail.quote_token_program, quote_token_program);
 
         let get_without_tail = |i: usize| -> Pubkey {
             match i {
@@ -433,6 +461,8 @@ mod tests {
 
         fill_create_accounts_from_v2(&mut without_tail, &get_without_tail);
         assert_eq!(without_tail.quote_mint, PUMPFUN_SOLSCAN_SOL_QUOTE_MINT);
+        assert_eq!(without_tail.quote_vault, Pubkey::default());
+        assert_eq!(without_tail.quote_token_program, Pubkey::default());
     }
 
     #[test]
